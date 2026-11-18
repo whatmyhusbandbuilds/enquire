@@ -2,7 +2,7 @@
 
 The page people open from the link in the wmhb Instagram bio. They fill in a short letter and send it. Each enquiry lands as a new row on the **Enquiries** tab of the wmhb business tracker, with status New, and an alert email goes to the business inbox.
 
-**Live page:** https://whatmyhusbandbuilds.github.io/enquire/
+**Live page:** https://wmhb.co.nz (the old address, whatmyhusbandbuilds.github.io/enquire/, forwards there)
 
 ## What each file is
 
@@ -48,6 +48,12 @@ That is the web address of the **wmhb enquiries** Google Apps Script (its own pr
 This keeps the same web address, so the page keeps working. Never use "New deployment" for an update: that makes a new address and the page would stop sending until `ENQUIRY_ENDPOINT` is changed.
 
 To add another alert address (for example Sara's), change `ALERT_TO` in `Code.gs` (addresses separated by commas) and redeploy as above.
+
+## The wmhb.co.nz address
+
+- Bought on Cloudflare (renews yearly: keep auto-renew on, or the link stops working).
+- Cloudflare DNS has four A records for `wmhb.co.nz` (185.199.108.153, 185.199.109.153, 185.199.110.153, 185.199.111.153) and a `www` CNAME to `whatmyhusbandbuilds.github.io`, all set to **DNS only** (grey cloud). Don't turn the orange cloud on.
+- `docs/CNAME` tells GitHub Pages to serve the page at wmhb.co.nz. Don't delete it.
 
 ## Good to know
 
