@@ -8,7 +8,7 @@ The page people open from the link in the wmhb Instagram bio. They fill in a sho
 
 | File | What it does |
 |---|---|
-| `docs/index.html` | The page itself: header, photo, the letter, the two pickers, the sent and could-not-send screens. Text you might want to change (headline, price line, "what happens next") is here. |
+| `docs/index.html` | The page itself: header, photo, the letter, the two pickers, the sent and could-not-send screens. Text you might want to change (headline, the line under it, "what happens next") is here. |
 | `docs/styles.css` | How it looks: colours, sizes, spacing. Brand colours are at the top. |
 | `docs/app.js` | How it behaves: the blanks opening one after another, checking answers, saving on the phone, sending. |
 | `docs/assets/` | The guestbook photo (two sizes), the favicon and the link preview picture. |
@@ -30,7 +30,7 @@ That is the web address of the **wmhb enquiries** Google Apps Script (its own pr
 
 ## Update the page
 
-1. Change the file (or open Claude Code in this folder and say what you want, for example "change the price line to from $495").
+1. Change the file (or open Claude Code in this folder and say what you want, for example "change the line under the headline").
 2. In a terminal in this folder, run:
 
    ```

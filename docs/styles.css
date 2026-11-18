@@ -137,17 +137,16 @@ body.is-failed .page { padding-bottom: calc(200px + var(--safe-bottom)); }
 
 .photo {
   margin: 16px 16px 0;
-  height: 140px;
+  aspect-ratio: 800 / 535; /* the whole photo, uncropped */
   border-radius: var(--radius-md);
   overflow: hidden;
   background: var(--line);
 }
-.photo img { width: 100%; height: 100%; object-fit: cover; object-position: 42% 58%; }
+.photo img { width: 100%; height: 100%; object-fit: cover; }
 
 .intro { padding: 16px 20px 0; }
 .intro-title { font-size: 30px; line-height: 0.98; font-weight: 900; letter-spacing: -0.03em; }
-.intro-price { margin-top: 8px; font-size: 15px; color: var(--ink-muted); }
-.intro-price b { color: var(--ink); }
+.intro-line { margin-top: 8px; font-size: 15px; color: var(--ink-muted); }
 
 .card {
   margin: 16px 16px 0;
