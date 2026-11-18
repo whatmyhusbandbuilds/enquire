@@ -1,0 +1,48 @@
+/* wmhb: colour, type, spacing and corner tokens */
+
+@font-face { font-family: 'Inter Tight'; src: url('fonts/InterTight.ttf') format('truetype'); font-weight: 100 900; font-display: swap; }
+
+:root {
+  /* colour */
+  --yellow: #F1C22D;
+  --yellow-soft: #FBEDB8;
+  --ink: #1C1B15;
+  --ink-muted: #5C5A50;
+  --ink-muted-on-yellow: #4D4220;
+  --paper: #FAFAF7;
+  --surface: #FFFFFF;
+  --line: #E2DFD5;
+  --field-border: #8A8576;
+  --placeholder: #6E6A5D;
+  --error: #B42318;
+  --error-soft: #FDEDEA;
+  --success: #1D7A4A;
+  --success-soft: #E8F4EC;
+  --wine: #5A1820;
+  --blush: #F6E8E4;
+
+  /* spacing */
+  --space-1: 8px;
+  --space-2: 16px;
+  --space-3: 24px;
+  --space-4: 40px;
+
+  /* corners */
+  --radius-sm: 3px;
+  --radius-md: 4px;
+  --radius-pill: 999px;
+
+  /* focus */
+  --focus-ring: 0 0 0 2px #1C1B15, 0 0 0 5px #F1C22D;
+
+  /* type */
+  --font-sans: 'Inter Tight', system-ui, sans-serif;
+}
+
+.display { font-family: var(--font-sans); font-size: 72px; line-height: 0.9; font-weight: 900; letter-spacing: -0.05em; }
+.heading { font-family: var(--font-sans); font-size: 36px; line-height: 1.05; font-weight: 900; letter-spacing: -0.03em; }
+.lead { font-family: var(--font-sans); font-size: 22px; line-height: 1.35; font-weight: 600; }
+.body { font-family: var(--font-sans); font-size: 17px; line-height: 1.5; font-weight: 500; }
+.label { font-family: var(--font-sans); font-size: 16px; line-height: 1.3; font-weight: 700; }
+.hint { font-family: var(--font-sans); font-size: 14px; line-height: 1.4; font-weight: 500; }
+.button { font-family: var(--font-sans); font-size: 17px; line-height: 1; font-weight: 800; letter-spacing: -0.01em; }

@@ -1,0 +1,10 @@
+# Stays on the laptop only: these name the private business tracker
+backend/
+CLAUDE.md
+START-HERE.md
+
+# Local tool folders and system files
+.claude/
+.DS_Store
+Thumbs.db
+desktop.ini
