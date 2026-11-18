@@ -88,15 +88,17 @@
       </section>
     </div>
 
+    <p class="blanks-hint"><span class="blanks-hint-swatch" aria-hidden="true"></span><span>Fill in the 4 yellow blanks, then tap Send.</span></p>
+
     <section class="card letter" id="letter" aria-label="Your enquiry">
       <div class="summary" id="summary" role="alert" tabindex="-1" hidden>
         <svg class="ic summary-ic" aria-hidden="true"><use href="#i-alert"/></svg>
         <p id="summary-text"></p>
       </div>
 
-      <p class="letter-text">Hi wmhb, we're
-        <span class="slot" id="slot-name"><button type="button" class="blank" id="blank-name" data-field="name"></button><span class="field" id="field-name" hidden><label for="in-name" class="vh">Your names</label><span class="grow"><input id="in-name" type="text" size="1" maxlength="60" autocomplete="name" autocapitalize="words" enterkeyhint="next" placeholder="your names"></span></span></span>
-        and we're celebrating<span id="conn-event"> a</span>
+      <p class="letter-text">Hi wmhb, <span id="conn-name">I'm</span>
+        <span class="slot" id="slot-name"><button type="button" class="blank" id="blank-name" data-field="name"></button><span class="field" id="field-name" hidden><label for="in-name" class="vh">Your name</label><span class="grow"><input id="in-name" type="text" size="1" maxlength="60" autocomplete="name" autocapitalize="words" enterkeyhint="next" placeholder="your name"></span></span></span>.
+        <span id="conn-like">I'd</span> like the guestbook for<span id="conn-event"> a</span>
         <button type="button" class="blank blank--pick" id="blank-event" data-field="event" aria-haspopup="dialog"></button>
         <span id="conn-when">around</span>
         <button type="button" class="blank blank--pick" id="blank-when" data-field="when" aria-haspopup="dialog"></button>.
@@ -176,56 +178,58 @@
   </div>
 </div>
 
-<!-- F3: event sheet -->
-<dialog class="sheet" id="sheet-event" aria-labelledby="sheet-event-title">
-  <div class="sheet-scrim" data-close></div>
-  <div class="sheet-panel">
+<!-- F3 and F4: one sheet with two pages, so the event picker can lead straight into the month picker -->
+<dialog class="sheet" id="sheet" aria-labelledby="sheet-event-title">
+  <div class="sheet-scrim" id="sheet-scrim" data-close></div>
+  <div class="sheet-panel" id="sheet-panel">
     <div class="sheet-grab" aria-hidden="true"></div>
-    <div class="sheet-head">
-      <div>
-        <p class="sheet-step">2 of 4</p>
-        <h2 class="sheet-title" id="sheet-event-title">what are you celebrating?</h2>
-        <p class="sheet-hint" id="sheet-event-hint">Tap one. The month picker opens next.</p>
-      </div>
-      <button type="button" class="sheet-close" data-close aria-label="Close"><svg class="ic ic--lg" aria-hidden="true"><use href="#i-xmark"/></svg></button>
-    </div>
-    <div class="events" id="events">
-      <button type="button" class="pill" data-event="Wedding"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-ring"/></svg></span><span><span class="pill-name">Wedding</span><span class="pill-sub">incl. walimah</span></span></button>
-      <button type="button" class="pill" data-event="Engagement"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-heart"/></svg></span><span><span class="pill-name">Engagement</span></span></button>
-      <button type="button" class="pill" data-event="Birthday"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-cake"/></svg></span><span><span class="pill-name">Birthday</span><span class="pill-sub">21st, quinceañera</span></span></button>
-      <button type="button" class="pill" data-event="Baby shower"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-baby"/></svg></span><span><span class="pill-name">Baby shower</span></span></button>
-      <button type="button" class="pill" data-event="Corporate"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-briefcase"/></svg></span><span><span class="pill-name">Corporate</span></span></button>
-      <button type="button" class="pill" data-event="Market"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg></span><span><span class="pill-name">Market</span></span></button>
-      <button type="button" class="pill pill--wide" data-event="Something else"><span class="pill-ic pill-ic--square"><svg class="ic" aria-hidden="true"><use href="#i-wand"/></svg></span><span><span class="pill-name">Something else</span><span class="pill-sub">Tell us in the note</span></span></button>
-    </div>
-  </div>
-</dialog>
 
-<!-- F4: month sheet -->
-<dialog class="sheet" id="sheet-when" aria-labelledby="sheet-when-title">
-  <div class="sheet-scrim" data-close></div>
-  <div class="sheet-panel">
-    <div class="sheet-grab" aria-hidden="true"></div>
-    <div class="sheet-head">
-      <div>
-        <p class="sheet-step">3 of 4</p>
-        <h2 class="sheet-title" id="sheet-when-title">around when?</h2>
-        <p class="sheet-hint">A month is enough. We'll confirm the date later.</p>
+    <!-- F3: event -->
+    <div class="sheet-page" id="sheet-event">
+      <div class="sheet-head">
+        <div>
+          <p class="sheet-step">2 of 4</p>
+          <h2 class="sheet-title" id="sheet-event-title">what are you celebrating?</h2>
+          <p class="sheet-hint" id="sheet-event-hint">Tap one. The month picker opens next.</p>
+        </div>
+        <button type="button" class="sheet-close" data-close aria-label="Close"><svg class="ic ic--lg" aria-hidden="true"><use href="#i-xmark"/></svg></button>
       </div>
-      <button type="button" class="sheet-close" data-close aria-label="Close"><svg class="ic ic--lg" aria-hidden="true"><use href="#i-xmark"/></svg></button>
+      <div class="events" id="events">
+        <button type="button" class="pill" data-event="Wedding"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-ring"/></svg></span><span><span class="pill-name">Wedding</span><span class="pill-sub">incl. walimah</span></span></button>
+        <button type="button" class="pill" data-event="Engagement"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-heart"/></svg></span><span><span class="pill-name">Engagement</span></span></button>
+        <button type="button" class="pill" data-event="Birthday"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-cake"/></svg></span><span><span class="pill-name">Birthday</span><span class="pill-sub">21st, quinceañera</span></span></button>
+        <button type="button" class="pill" data-event="Baby shower"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-baby"/></svg></span><span><span class="pill-name">Baby shower</span></span></button>
+        <button type="button" class="pill" data-event="Corporate"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-briefcase"/></svg></span><span><span class="pill-name">Corporate</span></span></button>
+        <button type="button" class="pill" data-event="Market"><span class="pill-ic"><svg class="ic" aria-hidden="true"><use href="#i-store"/></svg></span><span><span class="pill-name">Market</span></span></button>
+        <button type="button" class="pill pill--wide" data-event="Something else"><span class="pill-ic pill-ic--square"><svg class="ic" aria-hidden="true"><use href="#i-wand"/></svg></span><span><span class="pill-name">Something else</span><span class="pill-sub">Tell us in the note</span></span></button>
+      </div>
     </div>
-    <div class="months" id="months"></div>
-    <button type="button" class="opt opt--wide" id="not-sure"><svg class="ic" aria-hidden="true"><use href="#i-question"/></svg>Not sure yet</button>
-    <button type="button" class="exact-link" id="exact-toggle" aria-expanded="false" aria-controls="exact"><svg class="ic" aria-hidden="true"><use href="#i-calendar"/></svg>Know the exact date? Pick a day</button>
-    <div class="exact" id="exact" hidden>
-      <label for="in-date" class="exact-label">Your date</label>
-      <div class="exact-row">
-        <input type="date" id="in-date">
-        <button type="button" class="btn btn--primary btn--small" id="use-date" disabled>Use this day</button>
+
+    <!-- F4: month -->
+    <div class="sheet-page" id="sheet-when" hidden>
+      <div class="sheet-head">
+        <div>
+          <p class="sheet-step">3 of 4</p>
+          <h2 class="sheet-title" id="sheet-when-title">around when?</h2>
+          <p class="sheet-hint">A month is enough. We'll confirm the date later.</p>
+        </div>
+        <button type="button" class="sheet-close" data-close aria-label="Close"><svg class="ic ic--lg" aria-hidden="true"><use href="#i-xmark"/></svg></button>
       </div>
-      <p class="field-msg" id="date-msg" hidden></p>
+      <div class="months" id="months"></div>
+      <button type="button" class="opt opt--wide" id="not-sure"><svg class="ic" aria-hidden="true"><use href="#i-question"/></svg>Not sure yet</button>
+      <button type="button" class="exact-link" id="exact-toggle" aria-expanded="false" aria-controls="exact"><svg class="ic" aria-hidden="true"><use href="#i-calendar"/></svg>Know the exact date? Pick a day</button>
+      <div class="exact" id="exact" hidden>
+        <label for="in-date" class="exact-label">Your date</label>
+        <div class="exact-row">
+          <input type="date" id="in-date">
+          <button type="button" class="btn btn--primary btn--small" id="use-date" disabled>Use this day</button>
+        </div>
+        <p class="field-msg" id="date-msg" hidden></p>
+      </div>
     </div>
   </div>
+  <!-- Holds the keyboard open on iPhone while the sheet slides away before the reply field (see holdKeyboard in app.js) -->
+  <input class="kb-proxy" id="kb-proxy" type="text" tabindex="-1" aria-hidden="true" autocomplete="off" disabled>
 </dialog>
 
 <p class="toast" id="toast" role="status" aria-live="polite" hidden></p>

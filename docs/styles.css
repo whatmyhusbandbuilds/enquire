@@ -148,6 +148,23 @@ body.is-failed .page { padding-bottom: calc(200px + var(--safe-bottom)); }
 .intro-title { font-size: 30px; line-height: 0.98; font-weight: 900; letter-spacing: -0.03em; }
 .intro-line { margin-top: 8px; font-size: 15px; color: var(--ink-muted); }
 
+/* "Fill in the 4 yellow blanks" line, with a small blank as the key */
+.blanks-hint {
+  margin: 16px 20px 12px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 16px; font-weight: 700; color: var(--ink);
+  text-wrap: balance; /* on narrow phones it wraps as two even lines, not a lone "Send." */
+}
+.blanks-hint-swatch {
+  flex: none;
+  width: 30px; height: 18px;
+  border-radius: 2px;
+  background: var(--yellow-soft);
+  border-bottom: 2px solid var(--ink);
+}
+.blanks-hint + .letter { margin-top: 0; }
+body.is-failed .blanks-hint { display: none; }
+
 .card {
   margin: 16px 16px 0;
   padding: 16px;
@@ -199,25 +216,30 @@ body.is-failed .letter { margin-top: 16px; }
 .blank:focus-visible { box-shadow: var(--focus-ring); }
 .blank:disabled { cursor: default; }
 
-/* the inline text field that replaces a text blank while typing */
+/* The inline text field that replaces a text blank while typing. It takes the blank's exact box
+   (40px high, same text size, same width) so the words around it don't move when it swaps in. */
 .field { display: inline-flex; vertical-align: middle; max-width: 100%; }
 .grow {
   display: inline-grid;
   max-width: 100%;
-  min-width: 7.5em;
   height: 40px;
-  padding: 0 10px;
+  padding: 0 8px 0 10px; /* + 2px caret room = 10px each side, like the empty blank */
   align-items: center;
   border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--focus-ring);
 }
-.grow::after, .grow input { grid-area: 1 / 1; font: inherit; font-weight: 700; line-height: 1.15; }
-.grow::after { content: attr(data-value) ' '; visibility: hidden; white-space: pre; overflow: hidden; }
+.grow.is-tight { padding: 0 4px 0 6px; } /* replacing a filled blank, which has 6px sides */
+.grow::before, .grow::after, .grow input { grid-area: 1 / 1; font: inherit; line-height: 1.15; }
+.grow::before, .grow::after { visibility: hidden; white-space: pre; overflow: hidden; padding-right: 2px; }
+.grow::before { content: attr(data-floor); font-weight: 500; } /* an empty field never gets narrower than its placeholder */
+.grow::after { content: attr(data-value); font-weight: 700; }
+.grow.is-empty::after { font-weight: 500; }
 .grow input {
-  width: 100%; min-width: 0;
+  width: 0; min-width: 100%; /* the hidden copy of the text sets the width, not the input's own default size */
   padding: 0; margin: 0; border: 0;
   background: transparent;
+  font-weight: 700;
   color: var(--ink);
   caret-color: var(--ink);
 }
@@ -375,14 +397,22 @@ body.is-failed .letter { margin-top: 16px; }
 }
 .actions-note { font-size: 14px; line-height: 1.4; color: var(--ink-muted); text-align: center; }
 .actions-note .ic { margin-right: 4px; color: var(--ink); }
-body.is-typing .actions { display: none; }
+body.is-typing .actions { opacity: 0; visibility: hidden; pointer-events: none; }
 
-/* bar above the keyboard */
+/* bar above the keyboard: kept out of sight until the keyboard is up, then faded in (app.js) */
 .kbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
   background: var(--paper);
   border-top: 1px solid var(--line);
   will-change: transform;
+  opacity: 0; visibility: hidden; pointer-events: none;
+}
+.kbar.is-shown { opacity: 1; visibility: visible; pointer-events: auto; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .actions { transition: opacity 160ms ease-out, visibility 0s; }
+  body.is-typing .actions { transition: opacity 160ms ease-out, visibility 0s linear 160ms; }
+  .kbar.is-shown { transition: opacity 160ms ease-out; }
 }
 .kbar-inner {
   max-width: var(--max); margin: 0 auto;
@@ -407,22 +437,28 @@ body.is-typing .actions { display: none; }
 .sheet::backdrop { background: transparent; }
 .sheet[open] { display: flex; flex-direction: column; justify-content: flex-end; }
 .sheet-scrim { position: absolute; inset: 0; background: rgb(28 27 21 / 0.5); touch-action: none; }
-body.sheet-open { overflow: hidden; }
+.sheet.is-closing { pointer-events: none; }
 .sheet-panel {
   position: relative;
   width: 100%; max-width: var(--max); margin: 0 auto;
   max-height: calc(100% - 24px);
-  overflow-y: auto; overscroll-behavior: contain;
+  overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
   background: var(--paper);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   padding: 8px 16px calc(32px + var(--safe-bottom));
 }
-@media (prefers-reduced-motion: no-preference) {
-  .sheet[open] .sheet-panel { animation: sheet-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1); }
-  .sheet[open] .sheet-scrim { animation: fade-in 220ms ease-out; }
+/* Slide-up, slide-down and page changes are run from app.js (transform and opacity only). */
+.sheet-page { display: flow-root; }
+.sheet-page.is-leaving { position: absolute; left: 16px; right: 16px; pointer-events: none; }
+.kb-proxy {
+  position: absolute; top: 0; left: 0;
+  width: 1px; height: 1px; padding: 0; border: 0;
+  opacity: 0; font-size: 16px; pointer-events: none;
 }
-@keyframes sheet-up { from { transform: translateY(100%); } }
-@keyframes fade-in { from { opacity: 0; } }
+
+/* iPhone only, while a sheet is open: the page is pinned where it was (see lockScroll in app.js) */
+html.is-locked body { position: fixed; left: 0; right: 0; padding-top: var(--header-h); }
+html.is-locked .band { position: fixed; top: 0; left: 0; right: 0; }
 
 .sheet-grab { margin: 0 auto; width: 40px; height: 6px; border-radius: var(--radius-pill); background: var(--line); }
 .sheet-head { margin-top: 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }

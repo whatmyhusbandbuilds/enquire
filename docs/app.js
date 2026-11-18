@@ -17,14 +17,15 @@ const $ = (id) => document.getElementById(id);
 const el = {};
 [
   'band-place', 'band-tag', 'fail', 'fail-title', 'fail-text', 'hero', 'letter', 'summary', 'summary-text',
-  'conn-event', 'conn-when', 'conn-reply', 'blank-name', 'blank-event', 'blank-when', 'blank-reply',
+  'conn-name', 'conn-like', 'conn-event', 'conn-when', 'conn-reply', 'blank-name', 'blank-event', 'blank-when', 'blank-reply',
   'field-name', 'field-reply', 'in-name', 'in-reply', 'label-reply', 'reply-by', 'by-phone', 'by-instagram',
   'reply-msg', 'note-wrap', 'in-note', 'note-count', 'add-note', 'add-note-hint', 'saved', 'website',
   'step-hint', 'step-hint-tag', 'step-hint-text', 'tip', 'tip-text', 'view-letter', 'view-sent', 'ok-title',
   'ok-text', 'receipt-text', 'receipt-note', 'next-1', 'actions', 'send-btn', 'send-label', 'send-extra',
   'ig-btn', 'dm-btn', 'actions-note', 'kbar', 'kbar-tag', 'kbar-text', 'kbar-btn', 'kbar-label',
   'kbar-ic-send', 'kbar-ic-done', 'kbar-ic-next', 'sheet-event', 'sheet-event-hint', 'events', 'sheet-when',
-  'months', 'not-sure', 'exact-toggle', 'exact', 'in-date', 'use-date', 'date-msg', 'toast', 'band', 'page'
+  'months', 'not-sure', 'exact-toggle', 'exact', 'in-date', 'use-date', 'date-msg', 'toast', 'band', 'page',
+  'sheet', 'sheet-panel', 'sheet-scrim', 'kb-proxy'
 ].forEach((id) => { el[id.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = $(id); });
 
 /* ---------- state ---------- */
@@ -36,6 +37,7 @@ const ui = {
   editing: null,      // 'name' | 'reply' | 'note' while a text field is open
   chain: false,       // true while the blanks open one after another
   sheet: null,        // 'event' | 'when' while a sheet is open
+  kbarShown: false,   // the bar above the keyboard, faded in once the keyboard is up
   showErrors: false,  // true after Send was pressed with problems
   nameMsg: '',
   sending: false,
@@ -108,6 +110,8 @@ function article(ev) {
   if (ev === 'Something else') return '';
   return /^[aeiou]/i.test(eventText(ev || 'event')) && ev ? 'an' : 'a';
 }
+/** "Aroha & Sam" or "Aroha and Sam" write as we, anyone else as I. */
+const isPlural = () => /&|\sand\s/i.test(state.name);
 const replyValue = () => (state.channel === 'phone' ? state.phone : state.instagram);
 const igClean = (h) => String(h || '').trim().replace(/^@+/, '');
 const cleanPhone = (p) => String(p || '').replace(/[\s()-]/g, '');
@@ -139,7 +143,7 @@ function replyProblem() {
 
 function problems() {
   const out = [];
-  if (!state.name.trim()) out.push({ field: 'name', kind: 'missing', label: 'your names' });
+  if (!state.name.trim()) out.push({ field: 'name', kind: 'missing', label: 'your name' });
   if (!EVENTS.includes(state.event)) out.push({ field: 'event', kind: 'missing', label: "what you're celebrating" });
   const wp = whenProblem(state.when);
   if (wp === 'missing') out.push({ field: 'when', kind: 'missing', label: 'your month' });
@@ -179,6 +183,7 @@ function icon(name) {
 const reduceMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const isTouch = () => window.matchMedia('(pointer: coarse)').matches;
 const inInstagram = /Instagram/i.test(navigator.userAgent || '');
+const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 let toastTimer = 0;
 function toast(msg) {
@@ -190,7 +195,7 @@ function toast(msg) {
 
 /* ---------- render ---------- */
 
-const FIELD_NAME = { name: 'Your names', event: 'Event', when: 'Month or date', reply: 'Your number' };
+const FIELD_NAME = { name: 'Your name', event: 'Event', when: 'Month or date', reply: 'Your number' };
 
 function paintBlank(btn, field, o) {
   btn.className = 'blank' + (o.pick ? ' blank--pick' : '') + (o.filled ? ' is-filled' : '') +
@@ -214,13 +219,16 @@ function render() {
   const filled = filledCount();
 
   // connecting words
+  const we = isPlural();
+  el.connName.textContent = we ? "we're" : "I'm";
+  el.connLike.textContent = we ? "We'd" : "I'd";
   el.connEvent.textContent = state.event === 'Something else' ? '' : ' ' + article(state.event);
-  el.connWhen.textContent = state.when === 'not-sure' ? "but we're" : isExact(state.when) ? 'on' : 'around';
+  el.connWhen.textContent = state.when === 'not-sure' ? (we ? "but we're" : "but I'm") : isExact(state.when) ? 'on' : 'around';
   el.connReply.textContent = state.channel === 'phone' ? 'Call or text' : 'Reply to';
 
   // blanks
   paintBlank(el.blankName, 'name', {
-    text: state.name.trim() || 'your names', filled: !isEmpty('name'), error: !!bad.name
+    text: state.name.trim() || 'your name', filled: !isEmpty('name'), error: !!bad.name
   });
   paintBlank(el.blankEvent, 'event', {
     pick: true, text: state.event ? eventText(state.event) : bad.event ? 'pick one' : 'event',
@@ -277,7 +285,8 @@ function render() {
   el.stepHintTag.hidden = !!ui.nameMsg;
   el.stepHintText.textContent = ui.nameMsg || 'First names are perfect';
   const fixing = probs.length > 0;
-  el.tip.hidden = !!ui.editing || !!ui.sheet || ui.failed || (!fixing && filled === 4);
+  el.tip.hidden = !!ui.editing || ui.failed || (!fixing && filled === 4);
+  el.tip.style.visibility = ui.sheet ? 'hidden' : ''; // keeps its space, so the page behind the sheet doesn't shift
   el.tip.classList.toggle('is-fix', fixing);
   el.tipText.textContent = fixing ? 'Tap an outlined blank. Your other answers stay put.'
     : filled === 0 ? 'Tap the first blank. The rest open one after another.'
@@ -367,13 +376,14 @@ const STEP_LABEL = { event: "what you're celebrating", when: 'around when', repl
 function renderKbar() {
   const k = el.kbar;
   k.hidden = !ui.editing;
+  k.classList.toggle('is-shown', !!ui.editing && ui.kbarShown);
   if (!ui.editing) return;
   let tag = '';
   let text = '';
   let mode = 'done';
   if (ui.editing === 'name') {
     const next = ui.chain ? nextEmpty('name') : '';
-    if (next) { text = 'Next: ' + STEP_LABEL[next]; mode = 'next'; } else { tag = '1 of 4'; text = 'Your names'; }
+    if (next) { text = 'Next: ' + STEP_LABEL[next]; mode = 'next'; } else { tag = '1 of 4'; text = 'Your name'; }
   } else if (ui.editing === 'reply') {
     tag = '4 of 4'; text = 'Last one'; mode = 'send';
   } else {
@@ -403,6 +413,53 @@ function positionKbar() {
   k.style.setProperty('--kbar-safe', offset > 1 ? '0px' : 'env(safe-area-inset-bottom, 0px)');
 }
 
+/* ---------- waiting for the on-screen keyboard ---------- */
+// The keyboard takes a moment to open. Scrolling the letter and showing the bar above the keyboard
+// wait until it has stopped moving (visualViewport resize), so nothing jumps while it slides up.
+
+const kb = { fn: null, wait: 0, settle: 0, movedAt: -Infinity };
+
+function keyboardOpen() {
+  const vv = window.visualViewport;
+  return !!vv && document.documentElement.clientHeight - vv.height > 120;
+}
+
+function whenKeyboardReady(fn, keyboardUp) {
+  clearTimeout(kb.wait);
+  clearTimeout(kb.settle);
+  kb.fn = fn;
+  const moving = performance.now() - kb.movedAt < 150;
+  if (!isTouch() || (keyboardUp && !moving)) keyboardReady();
+  else if (moving) kb.settle = setTimeout(keyboardReady, 150);
+  else kb.wait = setTimeout(keyboardReady, 700); // no sign of the keyboard moving: carry on anyway
+}
+
+function onViewportResize() {
+  kb.movedAt = performance.now();
+  positionKbar();
+  if (!kb.fn) return;
+  clearTimeout(kb.wait);
+  clearTimeout(kb.settle);
+  kb.settle = setTimeout(keyboardReady, 150);
+}
+
+function keyboardReady() {
+  clearTimeout(kb.wait);
+  clearTimeout(kb.settle);
+  const fn = kb.fn;
+  kb.fn = null;
+  if (fn) fn();
+}
+
+/** The keyboard is up: fade the bar in above it and bring the letter up under the header. */
+function revealTyping(field) {
+  if (ui.editing !== field) return;
+  ui.kbarShown = true;
+  positionKbar();
+  el.kbar.classList.add('is-shown');
+  if (isTouch() && field !== 'note') scrollToLetter(true);
+}
+
 /* ---------- moving between blanks ---------- */
 
 function nextEmpty(from) {
@@ -414,9 +471,11 @@ function blankFor(field) {
   return { name: el.blankName, event: el.blankEvent, when: el.blankWhen, reply: el.blankReply }[field];
 }
 
-function openStep(field) {
+/** keyboardUp: a text field had focus a moment ago, so the keyboard is already open. */
+function openStep(field, keyboardUp) {
+  const typing = !!ui.editing;
   if (ui.editing && ui.editing !== field) endEdit();
-  if (field === 'name' || field === 'reply') startEdit(field);
+  if (field === 'name' || field === 'reply') startEdit(field, keyboardUp || typing);
   else openSheet(field);
 }
 
@@ -436,10 +495,19 @@ function scrollToLetter(smooth) {
   window.scrollTo({ top: target, behavior: smooth && !reduceMotion() ? 'smooth' : 'auto' });
 }
 
+/* Content under the letter changes while typing (the tip hides, hints swap). Never let the page get
+   shorter at that moment: a page scrolled to the bottom would jump. */
+function keepPageHeight() {
+  const h = el.page.offsetHeight;
+  if (h > (parseFloat(el.page.style.minHeight) || 0)) el.page.style.minHeight = h + 'px';
+}
+
 /* ---------- text fields: names, reply, note ---------- */
 
 function syncGrow(input) {
-  input.parentNode.dataset.value = input.value || input.placeholder;
+  const g = input.parentNode;
+  g.dataset.value = input.value || input.placeholder;
+  g.classList.toggle('is-empty', !input.value);
 }
 
 function configureReplyInput() {
@@ -466,10 +534,12 @@ function configureReplyInput() {
   }
 }
 
-function startEdit(field) {
+function startEdit(field, keyboardUp) {
   if (ui.sending) return;
+  const kbUp = !!keyboardUp || keyboardOpen();
   ui.editing = field;
   ui.nameMsg = '';
+  if (!kbUp) ui.kbarShown = false; // the bar waits for the keyboard
   let input;
   if (field === 'name') {
     input = el.inName;
@@ -482,14 +552,20 @@ function startEdit(field) {
     input = el.inNote;
     state.noteOpen = true;
   }
-  if (input !== el.inNote) syncGrow(input);
+  if (input !== el.inNote) {
+    // The field takes the blank's exact box (see .grow in styles.css), so the words around it stay put.
+    const filled = !isEmpty(field);
+    input.parentNode.classList.toggle('is-tight', filled);
+    input.parentNode.dataset.floor = filled ? '' : input.placeholder;
+    syncGrow(input);
+  }
+  keepPageHeight();
   render();
-  if (isTouch() && field !== 'note') scrollToLetter(false);
   input.focus({ preventScroll: field !== 'note' && isTouch() });
   if (input !== el.inNote) {
     try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) { /* some input types refuse */ }
   }
-  positionKbar();
+  whenKeyboardReady(() => revealTyping(field), kbUp);
 }
 
 function endEdit() {
@@ -539,7 +615,7 @@ function handleNext() {
   if (ui.editing !== 'name') return;
   const v = el.inName.value.trim();
   if (!v) {
-    ui.nameMsg = "Add your names so we know who's writing.";
+    ui.nameMsg = "Add your name so we know who's writing.";
     render();
     el.inName.focus({ preventScroll: true });
     return;
@@ -547,7 +623,7 @@ function handleNext() {
   const next = ui.chain ? nextEmpty('name') : '';
   endEdit();
   if (next) {
-    openStep(next);
+    openStep(next, true);
   } else {
     ui.chain = false;
     el.inName.blur();
@@ -573,6 +649,8 @@ function setChannel(ch) {
   state.channel = ch;
   configureReplyInput();
   el.inReply.value = ch === 'phone' ? state.phone : igClean(state.instagram);
+  const g = el.inReply.parentNode;
+  if (g.dataset.floor) g.dataset.floor = el.inReply.placeholder;
   syncGrow(el.inReply);
   save();
   render();
@@ -585,11 +663,51 @@ function setChannel(ch) {
 
 /* ---------- sheets ---------- */
 
-function sheetEl(which) { return which === 'event' ? el.sheetEvent : el.sheetWhen; }
+// One dialog holds both pickers. It slides up on open and down on close, and when the event picker
+// leads straight into the month picker the dimmed background stays up while the month page slides in.
 
-function openSheet(which) {
-  if (ui.sending) return;
-  const dlg = sheetEl(which);
+const EASE = 'cubic-bezier(0.32, 0.72, 0, 1)';
+const OPEN_MS = 260;
+const CLOSE_MS = 180;
+const sheet = { state: 'closed', panelAnims: [], pageAnims: [] }; // state: 'closed' | 'open' | 'closing'
+
+const sheetPage = (which) => (which === 'event' ? el.sheetEvent : which === 'when' ? el.sheetWhen : null);
+const canAnimate = () => !reduceMotion() && typeof el.sheetPanel.animate === 'function';
+
+function animate(list, node, keyframes, ms, extra) {
+  const a = node.animate(keyframes, Object.assign({ duration: ms, easing: EASE }, extra));
+  list.push(a);
+  return a;
+}
+function stopAnims(list) { list.splice(0).forEach((a) => a.cancel()); }
+
+/** Where a running slide has got to, in px, so the next one starts from there. */
+function translateYOf(node) {
+  const m = /matrix(3d)?\(([^)]+)\)/.exec(getComputedStyle(node).transform || '');
+  if (!m) return 0;
+  const v = m[2].split(',').map(Number);
+  return m[1] ? v[13] : v[5];
+}
+const opacityOf = (node) => Number(getComputedStyle(node).opacity);
+
+/* iPhones can still scroll the page behind an open sheet, so pin the page where it is until the sheet closes. */
+let lockedAt = null;
+function lockScroll() {
+  if (!isIOS || lockedAt !== null) return;
+  lockedAt = window.scrollY;
+  document.body.style.top = -lockedAt + 'px';
+  document.documentElement.classList.add('is-locked');
+}
+function unlockScroll() {
+  if (lockedAt === null) return;
+  const y = lockedAt;
+  lockedAt = null;
+  document.documentElement.classList.remove('is-locked');
+  document.body.style.top = '';
+  window.scrollTo(0, y);
+}
+
+function prepareSheet(which) {
   if (which === 'event') {
     el.sheetEventHint.textContent = ui.chain && isEmpty('when') ? 'Tap one. The month picker opens next.' : 'Tap one.';
     el.events.querySelectorAll('.pill').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.event === state.event)));
@@ -600,38 +718,162 @@ function openSheet(which) {
     showExact(exact, false);
     if (exact) el.inDate.value = state.when;
   }
-  ui.sheet = which;
-  document.body.classList.add('sheet-open');
-  render();
-  dlg.showModal();
-  const first = dlg.querySelector('[aria-pressed="true"]') || dlg.querySelector('.pill, .opt');
+  el.sheet.setAttribute('aria-labelledby', 'sheet-' + which + '-title');
+}
+
+/** Show only the current page and clear anything left over from a page change. */
+function settlePages() {
+  stopAnims(sheet.pageAnims);
+  [el.sheetEvent, el.sheetWhen].forEach((p) => {
+    p.classList.remove('is-leaving');
+    p.style.top = '';
+    p.inert = false;
+    p.hidden = p !== sheetPage(ui.sheet);
+  });
+}
+
+function focusFirst(which) {
+  const page = sheetPage(which);
+  const first = page.querySelector('[aria-pressed="true"]') || page.querySelector('.pill, .opt');
   if (first) first.focus({ preventScroll: true });
 }
 
-/** Close the open sheet. With moveOn the chain continues, otherwise focus goes back to the blank. */
-function closeSheet(returnFocus) {
-  const which = ui.sheet;
-  if (!which) return;
-  ui.sheet = null;
-  document.body.classList.remove('sheet-open');
-  const dlg = sheetEl(which);
-  if (dlg.open) dlg.close();
+function openSheet(which) {
+  if (ui.sending || sheet.state !== 'closed') return;
+  lockScroll();
+  prepareSheet(which);
+  ui.sheet = which;
+  settlePages();
   render();
-  if (returnFocus) blankFor(which).focus({ preventScroll: true });
+  el.sheet.showModal();
+  sheet.state = 'open';
+  el.sheetPanel.scrollTop = 0;
+  focusFirst(which);
+  if (!canAnimate()) return;
+  animate(sheet.panelAnims, el.sheetPanel, [{ transform: 'translateY(100%)' }, { transform: 'translateY(0)' }], OPEN_MS);
+  animate(sheet.panelAnims, el.sheetScrim, [{ opacity: 0 }, { opacity: 1 }], OPEN_MS);
+}
+
+/** The event picker leads straight into the month picker: same sheet, new page slides in. */
+function turnSheet(which) {
+  const panel = el.sheetPanel;
+  const out = sheetPage(ui.sheet);
+  const inn = sheetPage(which);
+  settlePages();
+  const topBefore = panel.getBoundingClientRect().top;
+  const ty = translateYOf(panel);
+  const scrim = opacityOf(el.sheetScrim);
+  const outTop = out.offsetTop - panel.scrollTop;
+  prepareSheet(which);
+  ui.sheet = which;
+  render();
+  if (!canAnimate()) {
+    settlePages();
+    panel.scrollTop = 0;
+    focusFirst(which);
+    return;
+  }
+  // the old page stays where it is, out of the flow, while it fades away
+  out.classList.add('is-leaving');
+  out.style.top = outTop + 'px';
+  out.inert = true;
+  inn.hidden = false;
+  panel.scrollTop = 0;
+  focusFirst(which);
+  // The month page is taller, so the sheet grows. Start it where it was and let it rise into place.
+  const from = Math.max(0, topBefore - panel.getBoundingClientRect().top + ty);
+  stopAnims(sheet.panelAnims);
+  if (from > 0.5) animate(sheet.panelAnims, panel, [{ transform: 'translateY(' + from + 'px)' }, { transform: 'translateY(0)' }], OPEN_MS);
+  if (scrim < 1) animate(sheet.panelAnims, el.sheetScrim, [{ opacity: scrim }, { opacity: 1 }], OPEN_MS);
+  const fade = animate(sheet.pageAnims, out, [{ opacity: 1, transform: 'translateX(0)' }, { opacity: 0, transform: 'translateX(-24px)' }], 140, { easing: 'ease-out', fill: 'forwards' });
+  fade.onfinish = () => {
+    out.hidden = true;
+    out.classList.remove('is-leaving');
+    out.style.top = '';
+    out.inert = false;
+    fade.cancel();
+  };
+  animate(sheet.pageAnims, inn, [{ opacity: 0, transform: 'translateX(32px)' }, { opacity: 1, transform: 'translateX(0)' }], OPEN_MS);
+}
+
+/** Slide the sheet away, then close the dialog. after(which) runs once it has gone. */
+function closeSheet(after) {
+  if (sheet.state !== 'open') return;
+  const which = ui.sheet;
+  sheet.state = 'closing';
+  ui.sheet = null;
+  el.sheet.classList.add('is-closing');
+  render();
+  let finished = false;
+  const done = () => {
+    if (finished) return;
+    finished = true;
+    sheet.state = 'closed';
+    el.sheet.classList.remove('is-closing');
+    el.sheet.close();
+    stopAnims(sheet.panelAnims);
+    settlePages();
+    el.kbProxy.disabled = true;
+    unlockScroll();
+    if (after) after(which);
+  };
+  if (!canAnimate()) { done(); return; }
+  const ty = translateYOf(el.sheetPanel);
+  const scrim = opacityOf(el.sheetScrim);
+  stopAnims(sheet.panelAnims);
+  const slide = animate(sheet.panelAnims, el.sheetPanel, [{ transform: 'translateY(' + ty + 'px)' }, { transform: 'translateY(100%)' }], CLOSE_MS, { fill: 'forwards' });
+  animate(sheet.panelAnims, el.sheetScrim, [{ opacity: scrim }, { opacity: 0 }], CLOSE_MS, { fill: 'forwards' });
+  slide.onfinish = done;
+  setTimeout(done, CLOSE_MS + 600); // in case the animation never reports back
+}
+
+/* iPhones only open the keyboard for a field focused during the tap itself. The page behind the sheet
+   can't take focus until the sheet has closed, so a stand-in field inside the sheet takes it now and
+   hands it to the reply field once the sheet has slid away. */
+function holdKeyboard() {
+  if (!isTouch() || !canAnimate()) return; // without the slide the reply field is focused straight away
+  const p = el.kbProxy;
+  const phone = state.channel === 'phone';
+  p.type = phone ? 'tel' : 'text';
+  p.inputMode = phone ? 'tel' : 'text';
+  p.disabled = false;
+  p.focus({ preventScroll: true });
 }
 
 function dismissSheet() { // ×, Escape or the dimmed background: the blank keeps what it had
+  if (sheet.state !== 'open') return;
   ui.chain = false;
-  closeSheet(true);
+  closeSheet((which) => blankFor(which).focus({ preventScroll: true }));
 }
 
 function choose(field, value) {
+  if (sheet.state !== 'open') return;
   state[field] = value;
   save();
   const next = ui.chain ? nextEmpty(field) : '';
-  closeSheet(!next);
-  if (next) openStep(next);
-  else ui.chain = false;
+  if (next === 'when') { turnSheet('when'); return; }
+  if (!next) ui.chain = false;
+  if (next === 'reply') holdKeyboard();
+  closeSheet((which) => {
+    if (next) openStep(next);
+    else blankFor(which).focus({ preventScroll: true });
+  });
+}
+
+/** The browser closed the sheet itself (for example the Android back gesture): tidy up straight away. */
+function onSheetClose() {
+  if (sheet.state === 'closed' || el.sheet.open) return;
+  const which = ui.sheet;
+  sheet.state = 'closed';
+  ui.sheet = null;
+  ui.chain = false;
+  el.sheet.classList.remove('is-closing');
+  stopAnims(sheet.panelAnims);
+  settlePages();
+  el.kbProxy.disabled = true;
+  unlockScroll();
+  render();
+  if (which) blankFor(which).focus({ preventScroll: true });
 }
 
 function buildMonths() {
@@ -681,10 +923,11 @@ function letterSegments() {
   const s = [];
   const t = (x) => s.push({ t: x });
   const b = (x) => s.push({ b: x });
-  t("Hi wmhb, we're "); b(state.name.trim()); t(" and we're celebrating ");
+  const we = isPlural();
+  t('Hi wmhb, ' + (we ? "we're " : "I'm ")); b(state.name.trim()); t('. ' + (we ? "We'd" : "I'd") + ' like the guestbook for ');
   if (state.event === 'Something else') b('something else');
   else { t(article(state.event) + ' '); b(eventText(state.event)); }
-  if (state.when === 'not-sure') { t(" but we're "); b('not sure of the date yet'); } else { t(isExact(state.when) ? ' on ' : ' around '); b(whenText(state.when)); }
+  if (state.when === 'not-sure') { t(' but ' + (we ? "we're " : "I'm ")); b('not sure of the date yet'); } else { t(isExact(state.when) ? ' on ' : ' around '); b(whenText(state.when)); }
   t('. ');
   if (state.channel === 'phone') { t('Call or text '); b(state.phone.trim()); } else { t('Reply to '); b('@' + igClean(state.instagram)); }
   t('.');
@@ -862,9 +1105,13 @@ function wire() {
   });
   el.inNote.addEventListener('focus', () => {
     if (ui.editing === 'note') return;
+    const kbUp = !!ui.editing || keyboardOpen();
     if (ui.editing) endEdit();
     ui.editing = 'note';
+    if (!kbUp) ui.kbarShown = false;
+    keepPageHeight();
     render();
+    whenKeyboardReady(() => revealTyping('note'), kbUp);
   });
 
   el.byPhone.addEventListener('click', () => setChannel('phone'));
@@ -892,11 +1139,9 @@ function wire() {
   });
 
   // sheets
-  [el.sheetEvent, el.sheetWhen].forEach((dlg) => {
-    dlg.querySelectorAll('[data-close]').forEach((c) => c.addEventListener('click', dismissSheet));
-    dlg.addEventListener('cancel', (e) => { e.preventDefault(); dismissSheet(); });
-    dlg.addEventListener('close', () => { if (ui.sheet && sheetEl(ui.sheet) === dlg) dismissSheet(); });
-  });
+  el.sheet.querySelectorAll('[data-close]').forEach((c) => c.addEventListener('click', dismissSheet));
+  el.sheet.addEventListener('cancel', (e) => { e.preventDefault(); dismissSheet(); });
+  el.sheet.addEventListener('close', onSheetClose);
   el.events.addEventListener('click', (e) => {
     const b = e.target.closest('.pill');
     if (b) choose('event', b.dataset.event);
@@ -912,7 +1157,7 @@ function wire() {
   el.useDate.addEventListener('click', () => { if (checkDate()) choose('when', el.inDate.value); });
 
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', positionKbar);
+    window.visualViewport.addEventListener('resize', onViewportResize);
     window.visualViewport.addEventListener('scroll', positionKbar);
   }
 }
