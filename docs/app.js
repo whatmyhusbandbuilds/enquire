@@ -2,7 +2,7 @@
 'use strict';
 
 // The Google Apps Script web app URL (ends in /exec). See README.md, "Backend".
-const ENQUIRY_ENDPOINT = '';
+const ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/AKfycbzo0kqI5dWam4mH3wij__ZmD4DDeDOioQPCmlLMHHHVSk7FdgxnQcS1rKfyBqdYhROrtg/exec';
 
 const IG_HANDLE = 'whatmyhusbandbuilds';
 const STORAGE_KEY = 'wmhb-enquiry-v1';
