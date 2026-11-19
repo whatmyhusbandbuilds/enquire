@@ -26,7 +26,7 @@ Near the top of `docs/app.js` is this line:
 const ENQUIRY_ENDPOINT = 'https://script.google.com/macros/s/.../exec';
 ```
 
-That is the web address of the **wmhb enquiries** Google Apps Script (its own project, separate from the wmhb app dashboard). The script is in `backend/Code.gs` on the laptop. It adds one row to the Enquiries tab and emails the alert. It never touches any other tab.
+That is the web address of the **wmhb enquiries** Google Apps Script (its own project, separate from the wmhb app dashboard). The script is in `backend/Code.gs` on the laptop. It adds one row to the Enquiries tab and emails the alert. It never touches any other tab. The venue goes on the first line of the Message column ("Venue: Hamilton Gardens"), with their note underneath.
 
 ## Update the page
 

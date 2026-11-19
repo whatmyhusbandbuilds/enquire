@@ -11,14 +11,16 @@ const TIMEOUT_MS = 15000;
 const EVENTS = ['Wedding', 'Engagement', 'Birthday', 'Baby shower', 'Corporate', 'Market', 'Something else'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const ORDER = ['name', 'event', 'when', 'reply'];
+const ORDER = ['name', 'event', 'when', 'venue', 'reply'];
+const VENUE_MSG = 'Add where it is. A suburb or town is fine.';
 
 const $ = (id) => document.getElementById(id);
 const el = {};
 [
   'band-place', 'band-tag', 'fail', 'fail-title', 'fail-text', 'hero', 'letter', 'summary', 'summary-text',
-  'conn-name', 'conn-like', 'conn-event', 'conn-when', 'conn-reply', 'blank-name', 'blank-event', 'blank-when', 'blank-reply',
-  'field-name', 'field-reply', 'in-name', 'in-reply', 'label-reply', 'reply-by', 'by-phone', 'by-instagram',
+  'conn-name', 'conn-like', 'conn-event', 'conn-when', 'conn-venue', 'conn-reply',
+  'blank-name', 'blank-event', 'blank-when', 'blank-venue', 'blank-reply',
+  'field-name', 'field-venue', 'field-reply', 'in-name', 'in-venue', 'in-reply', 'label-reply', 'reply-by', 'by-phone', 'by-instagram',
   'reply-msg', 'note-wrap', 'in-note', 'note-count', 'add-note', 'add-note-hint', 'saved', 'website',
   'step-hint', 'step-hint-tag', 'step-hint-text', 'tip', 'tip-text', 'view-letter', 'view-sent', 'ok-title',
   'ok-text', 'receipt-text', 'receipt-note', 'next-1', 'actions', 'send-btn', 'send-label', 'send-extra',
@@ -30,16 +32,16 @@ const el = {};
 
 /* ---------- state ---------- */
 
-const blankState = () => ({ name: '', event: '', when: '', channel: 'phone', phone: '', instagram: '', note: '', noteOpen: false });
+const blankState = () => ({ name: '', event: '', when: '', venue: '', channel: 'phone', phone: '', instagram: '', note: '', noteOpen: false });
 let state = blankState();
 
 const ui = {
-  editing: null,      // 'name' | 'reply' | 'note' while a text field is open
+  editing: null,      // 'name' | 'venue' | 'reply' | 'note' while a text field is open
   chain: false,       // true while the blanks open one after another
   sheet: null,        // 'event' | 'when' while a sheet is open
   kbarShown: false,   // the bar above the keyboard, faded in once the keyboard is up
   showErrors: false,  // true after Send was pressed with problems
-  nameMsg: '',
+  fieldMsg: '',       // "add your name" or "add where it is" after Next on an empty field
   sending: false,
   failed: false,
   failMsg: '',
@@ -59,7 +61,7 @@ function load() {
   try { d = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch (e) { d = null; }
   if (!d || typeof d !== 'object') return;
   const s = blankState();
-  ['name', 'phone', 'instagram', 'note'].forEach((k) => { if (typeof d[k] === 'string') s[k] = d[k]; });
+  ['name', 'venue', 'phone', 'instagram', 'note'].forEach((k) => { if (typeof d[k] === 'string') s[k] = d[k]; });
   if (EVENTS.includes(d.event)) s.event = d.event;
   if (typeof d.when === 'string' && whenProblem(d.when) === '') s.when = d.when;
   if (d.channel === 'instagram') s.channel = 'instagram';
@@ -76,7 +78,7 @@ function parseWhen(w) { return /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(w || ''); }
 function isExact(w) { const m = parseWhen(w); return !!(m && m[3]); }
 
 function whenText(w) {
-  if (w === 'not-sure') return 'not sure of the date yet';
+  if (w === 'not-sure') return 'date to be decided';
   const m = parseWhen(w);
   if (!m) return '';
   return (m[3] ? Number(m[3]) + ' ' : '') + MONTHS[Number(m[2]) - 1] + ' ' + m[1];
@@ -120,6 +122,7 @@ function isEmpty(field) {
   if (field === 'name') return !state.name.trim();
   if (field === 'event') return !state.event;
   if (field === 'when') return !state.when;
+  if (field === 'venue') return !state.venue.trim();
   if (field === 'reply') return state.channel === 'phone' ? !state.phone.trim() : !igClean(state.instagram);
   return true;
 }
@@ -148,6 +151,9 @@ function problems() {
   const wp = whenProblem(state.when);
   if (wp === 'missing') out.push({ field: 'when', kind: 'missing', label: 'your month' });
   else if (wp) out.push({ field: 'when', kind: 'invalid', msg: wp === 'past-date' ? 'Pick today or a later date.' : 'Pick a month from now on.' });
+  const venue = state.venue.trim();
+  if (!venue) out.push({ field: 'venue', kind: 'missing', label: 'your venue' });
+  else if (venue.length < 2) out.push({ field: 'venue', kind: 'invalid', msg: VENUE_MSG });
   const rp = replyProblem();
   if (rp) out.push({ field: 'reply', kind: rp.kind, msg: rp.msg, label: state.channel === 'phone' ? 'your phone number' : 'your Instagram handle' });
   return out;
@@ -195,7 +201,7 @@ function toast(msg) {
 
 /* ---------- render ---------- */
 
-const FIELD_NAME = { name: 'Your name', event: 'Event', when: 'Month or date', reply: 'Your number' };
+const FIELD_NAME = { name: 'Your name', event: 'Event', when: 'Month or date', venue: 'Your venue', reply: 'Your number' };
 
 function paintBlank(btn, field, o) {
   btn.className = 'blank' + (o.pick ? ' blank--pick' : '') + (o.filled ? ' is-filled' : '') +
@@ -223,7 +229,9 @@ function render() {
   el.connName.textContent = we ? "we're" : "I'm";
   el.connLike.textContent = we ? "We'd" : "I'd";
   el.connEvent.textContent = state.event === 'Something else' ? '' : ' ' + article(state.event);
-  el.connWhen.textContent = state.when === 'not-sure' ? (we ? "but we're" : "but I'm") : isExact(state.when) ? 'on' : 'around';
+  // "around March 2027 at …", "on 13 March 2027 at …", ", date to be decided, at …"
+  el.connWhen.textContent = state.when === 'not-sure' ? ', ' : isExact(state.when) ? ' on ' : ' around ';
+  el.connVenue.textContent = state.when === 'not-sure' ? ', at ' : ' at ';
   el.connReply.textContent = state.channel === 'phone' ? 'Call or text' : 'Reply to';
 
   // blanks
@@ -238,6 +246,9 @@ function render() {
     pick: true, text: state.when ? whenText(state.when) : bad.when ? 'pick one' : 'month',
     filled: !!state.when, active: ui.sheet === 'when', error: !!bad.when && ui.sheet !== 'when'
   });
+  paintBlank(el.blankVenue, 'venue', {
+    text: state.venue.trim() || 'your venue', filled: !isEmpty('venue'), error: !!bad.venue
+  });
   const rv = state.channel === 'phone' ? state.phone.trim() : igClean(state.instagram);
   paintBlank(el.blankReply, 'reply', {
     text: rv ? (state.channel === 'phone' ? rv : '@' + rv) : state.channel === 'phone' ? 'your number' : 'your handle',
@@ -247,9 +258,12 @@ function render() {
   // text fields swap in for their blanks
   el.blankName.hidden = ui.editing === 'name';
   el.fieldName.hidden = ui.editing !== 'name';
+  el.blankVenue.hidden = ui.editing === 'venue';
+  el.fieldVenue.hidden = ui.editing !== 'venue';
   el.blankReply.hidden = ui.editing === 'reply';
   el.fieldReply.hidden = ui.editing !== 'reply';
-  el.inName.parentNode.classList.toggle('is-error', !!bad.name || !!ui.nameMsg);
+  el.inName.parentNode.classList.toggle('is-error', !!bad.name || (ui.editing === 'name' && !!ui.fieldMsg));
+  el.inVenue.parentNode.classList.toggle('is-error', !!bad.venue || (ui.editing === 'venue' && !!ui.fieldMsg));
   el.inReply.parentNode.classList.toggle('is-error', !!bad.reply && bad.reply.kind === 'invalid');
 
   // reply by phone / instagram
@@ -271,8 +285,9 @@ function render() {
 
   // note
   el.noteWrap.hidden = !state.noteOpen;
-  el.addNote.hidden = state.noteOpen || ui.editing === 'name' || ui.editing === 'reply' || (ui.failed && filled === 4);
-  el.addNoteHint.textContent = filled === 4 ? '· venue, guests, ideas' : '· optional';
+  const allFilled = filled === ORDER.length;
+  el.addNote.hidden = state.noteOpen || ['name', 'venue', 'reply'].includes(ui.editing) || (ui.failed && allFilled);
+  el.addNoteHint.textContent = allFilled ? '· venue, guests, ideas' : '· optional';
   el.addNote.disabled = ui.sending;
   el.inNote.readOnly = ui.sending;
   const left = 500 - state.note.length;
@@ -280,12 +295,14 @@ function render() {
   el.saved.hidden = !ui.failed;
 
   // helper lines under the letter
-  el.stepHint.hidden = ui.editing !== 'name';
-  el.stepHint.classList.toggle('is-error', !!ui.nameMsg);
-  el.stepHintTag.hidden = !!ui.nameMsg;
-  el.stepHintText.textContent = ui.nameMsg || 'First names are perfect';
+  const venueHint = ui.editing === 'venue';
+  el.stepHint.hidden = ui.editing !== 'name' && !venueHint;
+  el.stepHint.classList.toggle('is-error', !!ui.fieldMsg);
+  el.stepHintTag.hidden = !!ui.fieldMsg;
+  el.stepHintTag.textContent = venueHint ? '4 of 5' : '1 of 5';
+  el.stepHintText.textContent = ui.fieldMsg || (venueHint ? 'No venue yet? A suburb or town is fine.' : 'First names are perfect');
   const fixing = probs.length > 0;
-  el.tip.hidden = !!ui.editing || ui.failed || (!fixing && filled === 4);
+  el.tip.hidden = !!ui.editing || ui.failed || (!fixing && allFilled);
   el.tip.style.visibility = ui.sheet ? 'hidden' : ''; // keeps its space, so the page behind the sheet doesn't shift
   el.tip.classList.toggle('is-fix', fixing);
   el.tipText.textContent = fixing ? 'Tap an outlined blank. Your other answers stay put.'
@@ -362,16 +379,17 @@ function renderActions(probs, filled) {
   } else if (probs.length) {
     const missing = probs.filter((p) => p.kind === 'missing').length;
     note.textContent = missing ? missing + ' blank' + (missing > 1 ? 's' : '') + ' left' : probs.length + ' thing' + (probs.length > 1 ? 's' : '') + ' to fix';
-  } else if (filled === 4) {
-    note.append(icon('check'), 'All 4 blanks done · tap any to change it');
+  } else if (filled === ORDER.length) {
+    note.append(icon('check'), 'All ' + ORDER.length + ' blanks done · tap any to change it');
   } else if (filled === 0) {
     note.textContent = 'No account · no payment · we reply within a day';
   } else {
-    note.textContent = (4 - filled) + ' blank' + (4 - filled > 1 ? 's' : '') + ' left';
+    const left = ORDER.length - filled;
+    note.textContent = left + ' blank' + (left > 1 ? 's' : '') + ' left';
   }
 }
 
-const STEP_LABEL = { event: "what you're celebrating", when: 'around when', reply: 'how to reach you' };
+const STEP_LABEL = { event: "what you're celebrating", when: 'around when', venue: 'where it is', reply: 'how to reach you' };
 
 function renderKbar() {
   const k = el.kbar;
@@ -381,11 +399,13 @@ function renderKbar() {
   let tag = '';
   let text = '';
   let mode = 'done';
-  if (ui.editing === 'name') {
-    const next = ui.chain ? nextEmpty('name') : '';
-    if (next) { text = 'Next: ' + STEP_LABEL[next]; mode = 'next'; } else { tag = '1 of 4'; text = 'Your name'; }
+  if (ui.editing === 'name' || ui.editing === 'venue') {
+    const next = ui.chain ? nextEmpty(ui.editing) : '';
+    if (next) { text = 'Next: ' + STEP_LABEL[next]; mode = 'next'; }
+    else if (ui.editing === 'name') { tag = '1 of 5'; text = 'Your name'; }
+    else { tag = '4 of 5'; text = 'Your venue'; }
   } else if (ui.editing === 'reply') {
-    tag = '4 of 4'; text = 'Last one'; mode = 'send';
+    tag = '5 of 5'; text = 'Last one'; mode = 'send';
   } else {
     text = 'Your note is optional';
   }
@@ -468,14 +488,15 @@ function nextEmpty(from) {
 }
 
 function blankFor(field) {
-  return { name: el.blankName, event: el.blankEvent, when: el.blankWhen, reply: el.blankReply }[field];
+  return { name: el.blankName, event: el.blankEvent, when: el.blankWhen, venue: el.blankVenue, reply: el.blankReply }[field];
 }
+const TEXT_FIELDS = ['name', 'venue', 'reply'];
 
 /** keyboardUp: a text field had focus a moment ago, so the keyboard is already open. */
 function openStep(field, keyboardUp) {
   const typing = !!ui.editing;
   if (ui.editing && ui.editing !== field) endEdit();
-  if (field === 'name' || field === 'reply') startEdit(field, keyboardUp || typing);
+  if (TEXT_FIELDS.includes(field)) startEdit(field, keyboardUp || typing);
   else openSheet(field);
 }
 
@@ -502,7 +523,7 @@ function keepPageHeight() {
   if (h > (parseFloat(el.page.style.minHeight) || 0)) el.page.style.minHeight = h + 'px';
 }
 
-/* ---------- text fields: names, reply, note ---------- */
+/* ---------- text fields: name, venue, reply, note ---------- */
 
 function syncGrow(input) {
   const g = input.parentNode;
@@ -538,12 +559,15 @@ function startEdit(field, keyboardUp) {
   if (ui.sending) return;
   const kbUp = !!keyboardUp || keyboardOpen();
   ui.editing = field;
-  ui.nameMsg = '';
+  ui.fieldMsg = '';
   if (!kbUp) ui.kbarShown = false; // the bar waits for the keyboard
   let input;
   if (field === 'name') {
     input = el.inName;
     input.value = state.name;
+  } else if (field === 'venue') {
+    input = el.inVenue;
+    input.value = state.venue;
   } else if (field === 'reply') {
     input = el.inReply;
     configureReplyInput();
@@ -572,6 +596,7 @@ function endEdit() {
   const f = ui.editing;
   if (!f) return;
   if (f === 'name') state.name = el.inName.value.trim();
+  if (f === 'venue') state.venue = el.inVenue.value.trim();
   if (f === 'reply') {
     if (state.channel === 'phone') state.phone = el.inReply.value.trim();
     else state.instagram = igClean(el.inReply.value);
@@ -581,7 +606,7 @@ function endEdit() {
     if (!state.note.trim()) { state.note = ''; state.noteOpen = false; }
   }
   ui.editing = null;
-  ui.nameMsg = '';
+  ui.fieldMsg = '';
   save();
   render();
 }
@@ -597,6 +622,7 @@ function editZoneHasFocus() {
   const a = document.activeElement;
   if (!a || a === document.body) return false;
   if (ui.editing === 'name') return a === el.inName || el.kbar.contains(a);
+  if (ui.editing === 'venue') return a === el.inVenue || el.kbar.contains(a);
   if (ui.editing === 'reply') return a === el.inReply || el.kbar.contains(a) || el.replyBy.contains(a) || el.replyMsg.contains(a);
   if (ui.editing === 'note') return a === el.inNote || el.kbar.contains(a);
   return false;
@@ -611,23 +637,26 @@ function onFieldBlur() {
   }
 }
 
+/** Next (or Return) on the name or venue field: check it, then carry on to the next empty blank. */
 function handleNext() {
-  if (ui.editing !== 'name') return;
-  const v = el.inName.value.trim();
-  if (!v) {
-    ui.nameMsg = "Add your name so we know who's writing.";
+  const field = ui.editing;
+  if (field !== 'name' && field !== 'venue') return;
+  const input = field === 'name' ? el.inName : el.inVenue;
+  const v = input.value.trim();
+  if (field === 'name' ? !v : v.length < 2) {
+    ui.fieldMsg = field === 'name' ? "Add your name so we know who's writing." : VENUE_MSG;
     render();
-    el.inName.focus({ preventScroll: true });
+    input.focus({ preventScroll: true });
     return;
   }
-  const next = ui.chain ? nextEmpty('name') : '';
+  const next = ui.chain ? nextEmpty(field) : '';
   endEdit();
   if (next) {
     openStep(next, true);
   } else {
     ui.chain = false;
-    el.inName.blur();
-    el.blankName.focus({ preventScroll: true });
+    input.blur();
+    blankFor(field).focus({ preventScroll: true });
   }
 }
 
@@ -829,11 +858,11 @@ function closeSheet(after) {
 
 /* iPhones only open the keyboard for a field focused during the tap itself. The page behind the sheet
    can't take focus until the sheet has closed, so a stand-in field inside the sheet takes it now and
-   hands it to the reply field once the sheet has slid away. */
-function holdKeyboard() {
-  if (!isTouch() || !canAnimate()) return; // without the slide the reply field is focused straight away
+   hands it to the venue or reply field once the sheet has slid away. */
+function holdKeyboard(field) {
+  if (!isTouch() || !canAnimate()) return; // without the slide the field is focused straight away
   const p = el.kbProxy;
-  const phone = state.channel === 'phone';
+  const phone = field === 'reply' && state.channel === 'phone';
   p.type = phone ? 'tel' : 'text';
   p.inputMode = phone ? 'tel' : 'text';
   p.disabled = false;
@@ -853,7 +882,7 @@ function choose(field, value) {
   const next = ui.chain ? nextEmpty(field) : '';
   if (next === 'when') { turnSheet('when'); return; }
   if (!next) ui.chain = false;
-  if (next === 'reply') holdKeyboard();
+  if (next === 'venue' || next === 'reply') holdKeyboard(next);
   closeSheet((which) => {
     if (next) openStep(next);
     else blankFor(which).focus({ preventScroll: true });
@@ -927,7 +956,8 @@ function letterSegments() {
   t('Hi wmhb, ' + (we ? "we're " : "I'm ")); b(state.name.trim()); t('. ' + (we ? "We'd" : "I'd") + ' like the guestbook for ');
   if (state.event === 'Something else') b('something else');
   else { t(article(state.event) + ' '); b(eventText(state.event)); }
-  if (state.when === 'not-sure') { t(' but ' + (we ? "we're " : "I'm ")); b('not sure of the date yet'); } else { t(isExact(state.when) ? ' on ' : ' around '); b(whenText(state.when)); }
+  if (state.when === 'not-sure') { t(', '); b(whenText(state.when)); t(', at '); } else { t(isExact(state.when) ? ' on ' : ' around '); b(whenText(state.when)); t(' at '); }
+  b(state.venue.trim());
   t('. ');
   if (state.channel === 'phone') { t('Call or text '); b(state.phone.trim()); } else { t('Reply to '); b('@' + igClean(state.instagram)); }
   t('.');
@@ -975,6 +1005,7 @@ async function submit() {
     name: state.name.trim(),
     event: state.event,
     when: state.when,
+    venue: state.venue.trim(),
     channel: state.channel,
     phone: state.channel === 'phone' ? state.phone.trim() : '',
     instagram: state.channel === 'instagram' ? igClean(state.instagram) : '',
@@ -1072,6 +1103,7 @@ function wire() {
   el.blankName.addEventListener('click', () => onBlankTap('name'));
   el.blankEvent.addEventListener('click', () => onBlankTap('event'));
   el.blankWhen.addEventListener('click', () => onBlankTap('when'));
+  el.blankVenue.addEventListener('click', () => onBlankTap('venue'));
   el.blankReply.addEventListener('click', () => onBlankTap('reply'));
 
   // buttons that must not take focus away from the open text field (keeps the keyboard up)
@@ -1080,7 +1112,14 @@ function wire() {
   el.inName.addEventListener('input', () => {
     state.name = el.inName.value;
     syncGrow(el.inName);
-    if (ui.nameMsg) ui.nameMsg = '';
+    if (ui.fieldMsg) ui.fieldMsg = '';
+    save();
+    render();
+  });
+  el.inVenue.addEventListener('input', () => {
+    state.venue = el.inVenue.value;
+    syncGrow(el.inVenue);
+    if (ui.fieldMsg) ui.fieldMsg = '';
     save();
     render();
   });
@@ -1093,13 +1132,13 @@ function wire() {
   });
   el.inNote.addEventListener('input', () => { state.note = el.inNote.value; save(); render(); });
 
-  [el.inName, el.inReply, el.inNote].forEach((i) => {
+  [el.inName, el.inVenue, el.inReply, el.inNote].forEach((i) => {
     i.addEventListener('blur', onFieldBlur);
     i.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.preventDefault(); handleDone(); }
       if (e.key === 'Enter' && i !== el.inNote && !e.isComposing) {
         e.preventDefault();
-        if (i === el.inName) handleNext(); else handleSend();
+        if (i === el.inReply) handleSend(); else handleNext();
       }
     });
   });
