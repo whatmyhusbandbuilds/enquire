@@ -147,7 +147,6 @@ body.is-failed .page { padding-bottom: calc(200px + var(--safe-bottom)); }
 .intro { padding: 16px 20px 0; }
 .intro-title { font-size: 30px; line-height: 0.98; font-weight: 900; letter-spacing: -0.03em; }
 .intro-line { margin-top: 8px; font-size: 15px; color: var(--ink-muted); }
-.intro-prices { margin-top: 6px; font-size: 15px; font-weight: 700; color: var(--ink); }
 
 /* "Fill in the 4 yellow blanks" line, with a small blank as the key */
 .blanks-hint {
