@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>wmhb · check your date</title>
-<meta name="description" content="Video guestbook hire in Auckland and Hamilton. Tell us your names, your event and your month. It takes 30 seconds and we reply within a day.">
+<meta name="description" content="Video guestbook hire in Auckland and Hamilton. Tell us your names, your event and your date. It takes 30 seconds and we reply within a day.">
 <meta name="theme-color" content="#F1C22D">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="wmhb">
@@ -99,7 +99,7 @@
       <p class="letter-text">Hi wmhb, <span id="conn-name">I'm</span>
         <span class="slot" id="slot-name"><button type="button" class="blank" id="blank-name" data-field="name"></button><span class="field" id="field-name" hidden><label for="in-name" class="vh">Your name</label><span class="grow"><input id="in-name" type="text" size="1" maxlength="60" autocomplete="name" autocapitalize="words" enterkeyhint="next" placeholder="your name"></span></span></span>.
         <span id="conn-like">I'd</span> like the guestbook for<span id="conn-event"> a</span>
-        <button type="button" class="blank blank--pick" id="blank-event" data-field="event" aria-haspopup="dialog"></button><span id="conn-when"> around </span><button type="button" class="blank blank--pick" id="blank-when" data-field="when" aria-haspopup="dialog"></button><span id="conn-venue"> at </span><span class="slot" id="slot-venue"><button type="button" class="blank" id="blank-venue" data-field="venue"></button><span class="field" id="field-venue" hidden><label for="in-venue" class="vh">Your venue</label><span class="grow"><input id="in-venue" type="text" size="1" maxlength="80" autocomplete="off" autocapitalize="words" enterkeyhint="next" placeholder="your venue"></span></span></span>.
+        <span class="keep"><button type="button" class="blank blank--pick" id="blank-event" data-field="event" aria-haspopup="dialog"></button><span id="punct-event"></span></span><span id="conn-when"> around </span><span class="keep"><button type="button" class="blank blank--pick" id="blank-when" data-field="when" aria-haspopup="dialog"></button><span id="punct-when"></span></span><span id="conn-venue"> at </span><span class="slot" id="slot-venue"><button type="button" class="blank" id="blank-venue" data-field="venue"></button><span class="field" id="field-venue" hidden><label for="in-venue" class="vh">Your venue</label><span class="grow"><input id="in-venue" type="text" size="1" maxlength="80" autocomplete="off" autocapitalize="words" enterkeyhint="next" placeholder="your venue"></span></span></span>.
         <span id="conn-reply">Call or text</span>
         <span class="slot" id="slot-reply"><button type="button" class="blank" id="blank-reply" data-field="reply"></button><span class="field" id="field-reply" hidden><label for="in-reply" class="vh" id="label-reply">Your phone number</label><span class="grow"><input id="in-reply" type="tel" size="1" inputmode="tel" maxlength="20" autocomplete="tel" enterkeyhint="send" placeholder="your number"></span></span></span>.
       </p>
@@ -147,7 +147,7 @@
       <h2 class="next-title">what happens next</h2>
       <ol>
         <li><span class="num">1</span><span id="next-1">We check your month is free</span></li>
-        <li><span class="num">2</span><span>We send a quote and lettering ideas</span></li>
+        <li><span class="num">2</span><span>We send a quote within 24 hours</span></li>
         <li><span class="num">3</span><span>You decide, no obligation</span></li>
       </ol>
     </section>
@@ -172,11 +172,12 @@
 <div class="kbar" id="kbar" hidden>
   <div class="kbar-inner">
     <span class="kbar-text"><span class="tag" id="kbar-tag" hidden></span><span id="kbar-text">Next: what you're celebrating</span></span>
+    <button type="button" class="btn btn--secondary btn--small btn--tight keep-focus" id="kbar-unsure" hidden>Not sure yet</button>
     <button type="button" class="btn btn--primary btn--small keep-focus" id="kbar-btn"><svg class="ic" id="kbar-ic-send" aria-hidden="true" hidden><use href="#i-plane"/></svg><svg class="ic" id="kbar-ic-done" aria-hidden="true" hidden><use href="#i-check"/></svg><span id="kbar-label">Next</span><svg class="ic" id="kbar-ic-next" aria-hidden="true"><use href="#i-arrow"/></svg></button>
   </div>
 </div>
 
-<!-- F3 and F4: one sheet with two pages, so the event picker can lead straight into the month picker -->
+<!-- F3 and F4: one sheet with three pages: event, then month, then day -->
 <dialog class="sheet" id="sheet" aria-labelledby="sheet-event-title">
   <div class="sheet-scrim" id="sheet-scrim" data-close></div>
   <div class="sheet-panel" id="sheet-panel">
@@ -188,7 +189,7 @@
         <div>
           <p class="sheet-step">2 of 5</p>
           <h2 class="sheet-title" id="sheet-event-title">what are you celebrating?</h2>
-          <p class="sheet-hint" id="sheet-event-hint">Tap one. The month picker opens next.</p>
+          <p class="sheet-hint" id="sheet-event-hint">Tap one. The date picker opens next.</p>
         </div>
         <button type="button" class="sheet-close" data-close aria-label="Close"><svg class="ic ic--lg" aria-hidden="true"><use href="#i-xmark"/></svg></button>
       </div>
@@ -208,22 +209,29 @@
       <div class="sheet-head">
         <div>
           <p class="sheet-step">3 of 5</p>
-          <h2 class="sheet-title" id="sheet-when-title">around when?</h2>
-          <p class="sheet-hint">A month is enough. We'll confirm the date later.</p>
+          <h2 class="sheet-title" id="sheet-when-title">when's your event?</h2>
+          <p class="sheet-hint">Pick the month, then the day.</p>
         </div>
         <button type="button" class="sheet-close" data-close aria-label="Close"><svg class="ic ic--lg" aria-hidden="true"><use href="#i-xmark"/></svg></button>
       </div>
       <div class="months" id="months"></div>
       <button type="button" class="opt opt--wide" id="not-sure"><svg class="ic" aria-hidden="true"><use href="#i-question"/></svg>Not sure yet</button>
-      <button type="button" class="exact-link" id="exact-toggle" aria-expanded="false" aria-controls="exact"><svg class="ic" aria-hidden="true"><use href="#i-calendar"/></svg>Know the exact date? Pick a day</button>
-      <div class="exact" id="exact" hidden>
-        <label for="in-date" class="exact-label">Your date</label>
-        <div class="exact-row">
-          <input type="date" id="in-date">
-          <button type="button" class="btn btn--primary btn--small" id="use-date" disabled>Use this day</button>
+    </div>
+
+    <!-- Day: opens after a month is picked -->
+    <div class="sheet-page" id="sheet-day" hidden>
+      <div class="sheet-head">
+        <div>
+          <button type="button" class="sheet-back" id="day-back"><svg class="ic ic--back" aria-hidden="true"><use href="#i-arrow"/></svg>Months</button>
+          <p class="sheet-step">3 of 5</p>
+          <h2 class="sheet-title" id="sheet-day-title">which day?</h2>
+          <p class="sheet-hint" id="sheet-day-hint"></p>
         </div>
-        <p class="field-msg" id="date-msg" hidden></p>
+        <button type="button" class="sheet-close" data-close aria-label="Close"><svg class="ic ic--lg" aria-hidden="true"><use href="#i-xmark"/></svg></button>
       </div>
+      <div class="days" id="days" role="group" aria-labelledby="sheet-day-title"></div>
+      <button type="button" class="opt opt--wide" id="day-unsure"><svg class="ic" aria-hidden="true"><use href="#i-question"/></svg>Not sure of the day yet</button>
+      <p class="day-note" id="day-note"></p>
     </div>
   </div>
   <!-- Holds the keyboard open on iPhone while the sheet slides away before the reply field (see holdKeyboard in app.js) -->

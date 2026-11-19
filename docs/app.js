@@ -13,12 +13,14 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const ORDER = ['name', 'event', 'when', 'venue', 'reply'];
 const VENUE_MSG = 'Add where it is. A suburb or town is fine.';
+const VENUE_UNSURE = 'Not sure yet'; // what the tracker gets when they tap "Not sure yet" on the venue
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 const $ = (id) => document.getElementById(id);
 const el = {};
 [
   'band-place', 'band-tag', 'fail', 'fail-title', 'fail-text', 'hero', 'letter', 'summary', 'summary-text',
-  'conn-name', 'conn-like', 'conn-event', 'conn-when', 'conn-venue', 'conn-reply',
+  'conn-name', 'conn-like', 'conn-event', 'conn-when', 'conn-venue', 'conn-reply', 'punct-event', 'punct-when',
   'blank-name', 'blank-event', 'blank-when', 'blank-venue', 'blank-reply',
   'field-name', 'field-venue', 'field-reply', 'in-name', 'in-venue', 'in-reply', 'label-reply', 'reply-by', 'by-phone', 'by-instagram',
   'reply-msg', 'note-wrap', 'in-note', 'note-count', 'add-note', 'add-note-hint', 'saved', 'website',
@@ -26,7 +28,8 @@ const el = {};
   'ok-text', 'receipt-text', 'receipt-note', 'next-1', 'actions', 'send-btn', 'send-label', 'send-extra',
   'ig-btn', 'dm-btn', 'actions-note', 'kbar', 'kbar-tag', 'kbar-text', 'kbar-btn', 'kbar-label',
   'kbar-ic-send', 'kbar-ic-done', 'kbar-ic-next', 'sheet-event', 'sheet-event-hint', 'events', 'sheet-when',
-  'months', 'not-sure', 'exact-toggle', 'exact', 'in-date', 'use-date', 'date-msg', 'toast', 'band', 'page',
+  'months', 'not-sure', 'sheet-day', 'sheet-day-title', 'sheet-day-hint', 'days', 'day-back', 'day-unsure', 'day-note',
+  'kbar-unsure', 'toast', 'band', 'page',
   'sheet', 'sheet-panel', 'sheet-scrim', 'kb-proxy'
 ].forEach((id) => { el[id.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = $(id); });
 
@@ -38,7 +41,8 @@ let state = blankState();
 const ui = {
   editing: null,      // 'name' | 'venue' | 'reply' | 'note' while a text field is open
   chain: false,       // true while the blanks open one after another
-  sheet: null,        // 'event' | 'when' while a sheet is open
+  sheet: null,        // 'event' | 'when' | 'day' while a sheet is open
+  dayMonth: '',       // 'YYYY-MM' the day page is showing
   kbarShown: false,   // the bar above the keyboard, faded in once the keyboard is up
   showErrors: false,  // true after Send was pressed with problems
   fieldMsg: '',       // "add your name" or "add where it is" after Next on an empty field
@@ -81,7 +85,9 @@ function whenText(w) {
   if (w === 'not-sure') return 'date to be decided';
   const m = parseWhen(w);
   if (!m) return '';
-  return (m[3] ? Number(m[3]) + ' ' : '') + MONTHS[Number(m[2]) - 1] + ' ' + m[1];
+  if (!m[3]) return MONTHS[Number(m[2]) - 1] + ' ' + m[1];
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return DAYS[(d.getDay() + 6) % 7].slice(0, 3) + ' ' + Number(m[3]) + ' ' + MONTHS[Number(m[2]) - 1] + ' ' + m[1];
 }
 
 /** '' if fine, 'missing', 'past-month' or 'past-date'. */
@@ -113,6 +119,7 @@ function article(ev) {
   return /^[aeiou]/i.test(eventText(ev || 'event')) && ev ? 'an' : 'a';
 }
 /** "Aroha & Sam" or "Aroha and Sam" write as we, anyone else as I. */
+const venueUnsure = () => state.venue.trim() === VENUE_UNSURE;
 const isPlural = () => /&|\sand\s/i.test(state.name);
 const replyValue = () => (state.channel === 'phone' ? state.phone : state.instagram);
 const igClean = (h) => String(h || '').trim().replace(/^@+/, '');
@@ -149,7 +156,7 @@ function problems() {
   if (!state.name.trim()) out.push({ field: 'name', kind: 'missing', label: 'your name' });
   if (!EVENTS.includes(state.event)) out.push({ field: 'event', kind: 'missing', label: "what you're celebrating" });
   const wp = whenProblem(state.when);
-  if (wp === 'missing') out.push({ field: 'when', kind: 'missing', label: 'your month' });
+  if (wp === 'missing') out.push({ field: 'when', kind: 'missing', label: 'your date' });
   else if (wp) out.push({ field: 'when', kind: 'invalid', msg: wp === 'past-date' ? 'Pick today or a later date.' : 'Pick a month from now on.' });
   const venue = state.venue.trim();
   if (!venue) out.push({ field: 'venue', kind: 'missing', label: 'your venue' });
@@ -201,7 +208,7 @@ function toast(msg) {
 
 /* ---------- render ---------- */
 
-const FIELD_NAME = { name: 'Your name', event: 'Event', when: 'Month or date', venue: 'Your venue', reply: 'Your number' };
+const FIELD_NAME = { name: 'Your name', event: 'Event', when: 'Date', venue: 'Your venue', reply: 'Your number' };
 
 function paintBlank(btn, field, o) {
   btn.className = 'blank' + (o.pick ? ' blank--pick' : '') + (o.filled ? ' is-filled' : '') +
@@ -229,9 +236,12 @@ function render() {
   el.connName.textContent = we ? "we're" : "I'm";
   el.connLike.textContent = we ? "We'd" : "I'd";
   el.connEvent.textContent = state.event === 'Something else' ? '' : ' ' + article(state.event);
-  // "around March 2027 at …", "on 13 March 2027 at …", ", date to be decided, at …"
-  el.connWhen.textContent = state.when === 'not-sure' ? ', ' : isExact(state.when) ? ' on ' : ' around ';
-  el.connVenue.textContent = state.when === 'not-sure' ? ', at ' : ' at ';
+  // "on Sat 13 March 2027 at …", "around March 2027 at …", ", date to be decided, at …", ", venue still to decide"
+  // commas sit inside the blank's .keep wrapper so they never wrap onto a line of their own
+  el.punctEvent.textContent = state.when === 'not-sure' ? ',' : '';
+  el.connWhen.textContent = state.when === 'not-sure' ? ' ' : !state.when || isExact(state.when) ? ' on ' : ' around ';
+  el.punctWhen.textContent = venueUnsure() || state.when === 'not-sure' ? ',' : '';
+  el.connVenue.textContent = venueUnsure() ? ' ' : ' at ';
   el.connReply.textContent = state.channel === 'phone' ? 'Call or text' : 'Reply to';
 
   // blanks
@@ -243,11 +253,11 @@ function render() {
     filled: !!state.event, active: ui.sheet === 'event', error: !!bad.event && ui.sheet !== 'event'
   });
   paintBlank(el.blankWhen, 'when', {
-    pick: true, text: state.when ? whenText(state.when) : bad.when ? 'pick one' : 'month',
-    filled: !!state.when, active: ui.sheet === 'when', error: !!bad.when && ui.sheet !== 'when'
+    pick: true, text: state.when ? whenText(state.when) : bad.when ? 'pick one' : 'date',
+    filled: !!state.when, active: ui.sheet === 'when' || ui.sheet === 'day', error: !!bad.when && ui.sheet !== 'when' && ui.sheet !== 'day'
   });
   paintBlank(el.blankVenue, 'venue', {
-    text: state.venue.trim() || 'your venue', filled: !isEmpty('venue'), error: !!bad.venue
+    text: venueUnsure() ? 'venue still to decide' : state.venue.trim() || 'your venue', filled: !isEmpty('venue'), error: !!bad.venue
   });
   const rv = state.channel === 'phone' ? state.phone.trim() : igClean(state.instagram);
   paintBlank(el.blankReply, 'reply', {
@@ -295,12 +305,12 @@ function render() {
   el.saved.hidden = !ui.failed;
 
   // helper lines under the letter
-  const venueHint = ui.editing === 'venue';
-  el.stepHint.hidden = ui.editing !== 'name' && !venueHint;
+  // (the venue's hint lives in the bar above the keyboard, where it can't end up behind the keyboard)
+  el.stepHint.hidden = ui.editing !== 'name';
   el.stepHint.classList.toggle('is-error', !!ui.fieldMsg);
   el.stepHintTag.hidden = !!ui.fieldMsg;
-  el.stepHintTag.textContent = venueHint ? '4 of 5' : '1 of 5';
-  el.stepHintText.textContent = ui.fieldMsg || (venueHint ? 'No venue yet? A suburb or town is fine.' : 'First names are perfect');
+  el.stepHintTag.textContent = '1 of 5';
+  el.stepHintText.textContent = ui.fieldMsg || 'First names are perfect';
   const fixing = probs.length > 0;
   el.tip.hidden = !!ui.editing || ui.failed || (!fixing && allFilled);
   el.tip.style.visibility = ui.sheet ? 'hidden' : ''; // keeps its space, so the page behind the sheet doesn't shift
@@ -389,7 +399,7 @@ function renderActions(probs, filled) {
   }
 }
 
-const STEP_LABEL = { event: "what you're celebrating", when: 'around when', venue: 'where it is', reply: 'how to reach you' };
+const STEP_LABEL = { event: "what you're celebrating", when: 'your date', venue: 'where it is', reply: 'how to reach you' };
 
 function renderKbar() {
   const k = el.kbar;
@@ -399,11 +409,13 @@ function renderKbar() {
   let tag = '';
   let text = '';
   let mode = 'done';
-  if (ui.editing === 'name' || ui.editing === 'venue') {
+  if (ui.editing === 'venue') {
+    if (ui.chain && nextEmpty('venue')) mode = 'next';
+    text = ui.fieldMsg ? 'A suburb or town is fine.' : 'No venue yet?';
+  } else if (ui.editing === 'name') {
     const next = ui.chain ? nextEmpty(ui.editing) : '';
     if (next) { text = 'Next: ' + STEP_LABEL[next]; mode = 'next'; }
-    else if (ui.editing === 'name') { tag = '1 of 5'; text = 'Your name'; }
-    else { tag = '4 of 5'; text = 'Your venue'; }
+    else { tag = '1 of 5'; text = 'Your name'; }
   } else if (ui.editing === 'reply') {
     tag = '5 of 5'; text = 'Last one'; mode = 'send';
   } else {
@@ -413,6 +425,8 @@ function renderKbar() {
   el.kbarTag.textContent = tag;
   el.kbarText.textContent = text;
   el.kbarText.parentNode.classList.toggle('is-step', !!tag);
+  el.kbarText.parentNode.classList.toggle('is-error', ui.editing === 'venue' && !!ui.fieldMsg);
+  el.kbarUnsure.hidden = ui.editing !== 'venue';
   el.kbarLabel.textContent = mode === 'next' ? 'Next' : mode === 'send' ? 'Send' : 'Done';
   // SVG elements have no .hidden property, so set the attribute
   el.kbarIcNext.toggleAttribute('hidden', mode !== 'next');
@@ -450,8 +464,8 @@ function whenKeyboardReady(fn, keyboardUp) {
   kb.fn = fn;
   const moving = performance.now() - kb.movedAt < 150;
   if (!isTouch() || (keyboardUp && !moving)) keyboardReady();
-  else if (moving) kb.settle = setTimeout(keyboardReady, 150);
-  else kb.wait = setTimeout(keyboardReady, 700); // no sign of the keyboard moving: carry on anyway
+  else if (moving) kb.settle = setTimeout(keyboardReady, 60);
+  else kb.wait = setTimeout(keyboardReady, 450); // no sign of the keyboard moving: carry on anyway
 }
 
 function onViewportResize() {
@@ -460,7 +474,7 @@ function onViewportResize() {
   if (!kb.fn) return;
   clearTimeout(kb.wait);
   clearTimeout(kb.settle);
-  kb.settle = setTimeout(keyboardReady, 150);
+  kb.settle = setTimeout(keyboardReady, 60);
 }
 
 function keyboardReady() {
@@ -507,12 +521,19 @@ function onBlankTap(field) {
 }
 
 /* Make sure the letter can scroll up to sit under the header (F2, F5, F7). */
-function scrollToLetter(smooth) {
+/** Where the page scrolls to so the letter sits under the header. Makes sure the page is tall enough. */
+function letterTarget() {
+  const base = lockedAt !== null ? lockedAt : window.scrollY; // while a sheet pins the page, the body is shifted instead
   const header = el.band.offsetHeight;
-  const target = Math.max(0, el.letter.getBoundingClientRect().top + window.scrollY - header - 8);
-  const pageTop = el.page.getBoundingClientRect().top + window.scrollY;
+  const target = Math.max(0, el.letter.getBoundingClientRect().top + base - header - 8);
+  const pageTop = el.page.getBoundingClientRect().top + base;
   const need = Math.ceil(target + window.innerHeight - pageTop);
   if (need > el.page.offsetHeight) el.page.style.minHeight = need + 'px';
+  return target;
+}
+function scrollToLetter(smooth) {
+  const target = letterTarget();
+  if (Math.abs(window.scrollY - target) < 4) return; // already there (placed behind the sheet)
   window.scrollTo({ top: target, behavior: smooth && !reduceMotion() ? 'smooth' : 'auto' });
 }
 
@@ -567,7 +588,7 @@ function startEdit(field, keyboardUp) {
     input.value = state.name;
   } else if (field === 'venue') {
     input = el.inVenue;
-    input.value = state.venue;
+    input.value = venueUnsure() ? '' : state.venue;
   } else if (field === 'reply') {
     input = el.inReply;
     configureReplyInput();
@@ -660,6 +681,21 @@ function handleNext() {
   }
 }
 
+/** "Not sure yet" in the bar above the keyboard while the venue is open. */
+function handleVenueUnsure() {
+  if (ui.editing !== 'venue') return;
+  el.inVenue.value = VENUE_UNSURE;
+  const next = ui.chain ? nextEmpty('venue') : '';
+  endEdit();
+  if (next) {
+    openStep(next, true);
+  } else {
+    ui.chain = false;
+    el.inVenue.blur();
+    blankFor('venue').focus({ preventScroll: true });
+  }
+}
+
 function handleDone() {
   const f = ui.editing;
   endEdit();
@@ -700,7 +736,7 @@ const OPEN_MS = 260;
 const CLOSE_MS = 180;
 const sheet = { state: 'closed', panelAnims: [], pageAnims: [] }; // state: 'closed' | 'open' | 'closing'
 
-const sheetPage = (which) => (which === 'event' ? el.sheetEvent : which === 'when' ? el.sheetWhen : null);
+const sheetPage = (which) => ({ event: el.sheetEvent, when: el.sheetWhen, day: el.sheetDay }[which] || null);
 const canAnimate = () => !reduceMotion() && typeof el.sheetPanel.animate === 'function';
 
 function animate(list, node, keyframes, ms, extra) {
@@ -738,14 +774,13 @@ function unlockScroll() {
 
 function prepareSheet(which) {
   if (which === 'event') {
-    el.sheetEventHint.textContent = ui.chain && isEmpty('when') ? 'Tap one. The month picker opens next.' : 'Tap one.';
+    el.sheetEventHint.textContent = ui.chain && isEmpty('when') ? 'Tap one. The date picker opens next.' : 'Tap one.';
     el.events.querySelectorAll('.pill').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.event === state.event)));
-  } else {
+  } else if (which === 'when') {
     buildMonths();
     el.notSure.setAttribute('aria-pressed', String(state.when === 'not-sure'));
-    const exact = isExact(state.when);
-    showExact(exact, false);
-    if (exact) el.inDate.value = state.when;
+  } else {
+    buildDays(ui.dayMonth);
   }
   el.sheet.setAttribute('aria-labelledby', 'sheet-' + which + '-title');
 }
@@ -753,7 +788,7 @@ function prepareSheet(which) {
 /** Show only the current page and clear anything left over from a page change. */
 function settlePages() {
   stopAnims(sheet.pageAnims);
-  [el.sheetEvent, el.sheetWhen].forEach((p) => {
+  [el.sheetEvent, el.sheetWhen, el.sheetDay].forEach((p) => {
     p.classList.remove('is-leaving');
     p.style.top = '';
     p.inert = false;
@@ -763,7 +798,7 @@ function settlePages() {
 
 function focusFirst(which) {
   const page = sheetPage(which);
-  const first = page.querySelector('[aria-pressed="true"]') || page.querySelector('.pill, .opt');
+  const first = page.querySelector('[aria-pressed="true"]') || page.querySelector('.pill, .opt, .day:not(:disabled)');
   if (first) first.focus({ preventScroll: true });
 }
 
@@ -783,8 +818,9 @@ function openSheet(which) {
   animate(sheet.panelAnims, el.sheetScrim, [{ opacity: 0 }, { opacity: 1 }], OPEN_MS);
 }
 
-/** The event picker leads straight into the month picker: same sheet, new page slides in. */
-function turnSheet(which) {
+/** The event picker leads into the month picker, and the month into the day: same sheet, new page slides in.
+    back: true for the "Months" button, so the pages slide the other way. */
+function turnSheet(which, back) {
   const panel = el.sheetPanel;
   const out = sheetPage(ui.sheet);
   const inn = sheetPage(which);
@@ -814,7 +850,7 @@ function turnSheet(which) {
   stopAnims(sheet.panelAnims);
   if (from > 0.5) animate(sheet.panelAnims, panel, [{ transform: 'translateY(' + from + 'px)' }, { transform: 'translateY(0)' }], OPEN_MS);
   if (scrim < 1) animate(sheet.panelAnims, el.sheetScrim, [{ opacity: scrim }, { opacity: 1 }], OPEN_MS);
-  const fade = animate(sheet.pageAnims, out, [{ opacity: 1, transform: 'translateX(0)' }, { opacity: 0, transform: 'translateX(-24px)' }], 140, { easing: 'ease-out', fill: 'forwards' });
+  const fade = animate(sheet.pageAnims, out, [{ opacity: 1, transform: 'translateX(0)' }, { opacity: 0, transform: 'translateX(' + (back ? 24 : -24) + 'px)' }], 140, { easing: 'ease-out', fill: 'forwards' });
   fade.onfinish = () => {
     out.hidden = true;
     out.classList.remove('is-leaving');
@@ -822,7 +858,7 @@ function turnSheet(which) {
     out.inert = false;
     fade.cancel();
   };
-  animate(sheet.pageAnims, inn, [{ opacity: 0, transform: 'translateX(32px)' }, { opacity: 1, transform: 'translateX(0)' }], OPEN_MS);
+  animate(sheet.pageAnims, inn, [{ opacity: 0, transform: 'translateX(' + (back ? -32 : 32) + 'px)' }, { opacity: 1, transform: 'translateX(0)' }], OPEN_MS);
 }
 
 /** Slide the sheet away, then close the dialog. after(which) runs once it has gone. */
@@ -869,6 +905,28 @@ function holdKeyboard(field) {
   p.focus({ preventScroll: true });
 }
 
+/** A month leads straight into its days. Picking a month already counts, so closing the sheet keeps it. */
+function pickMonth(iso) {
+  if (sheet.state !== 'open') return;
+  if (!(isExact(state.when) && state.when.slice(0, 7) === iso)) state.when = iso;
+  save();
+  ui.dayMonth = iso;
+  turnSheet('day');
+}
+
+/* Before the sheet slides away into a text field, put the letter where typing needs it (under the
+   header) while the sheet still covers the page. Then nothing moves again once the keyboard is up. */
+function placeLetterBehindSheet() {
+  if (!isTouch()) return;
+  const y = letterTarget();
+  if (lockedAt !== null) {
+    lockedAt = y;
+    document.body.style.top = -y + 'px';
+  } else {
+    window.scrollTo(0, y);
+  }
+}
+
 function dismissSheet() { // ×, Escape or the dimmed background: the blank keeps what it had
   if (sheet.state !== 'open') return;
   ui.chain = false;
@@ -882,7 +940,10 @@ function choose(field, value) {
   const next = ui.chain ? nextEmpty(field) : '';
   if (next === 'when') { turnSheet('when'); return; }
   if (!next) ui.chain = false;
-  if (next === 'venue' || next === 'reply') holdKeyboard(next);
+  if (next === 'venue' || next === 'reply') {
+    holdKeyboard(next);
+    placeLetterBehindSheet();
+  }
   closeSheet((which) => {
     if (next) openStep(next);
     else blankFor(which).focus({ preventScroll: true });
@@ -917,7 +978,7 @@ function buildMonths() {
     b.type = 'button';
     b.className = 'opt';
     b.dataset.when = iso;
-    b.setAttribute('aria-pressed', String(state.when === iso));
+    b.setAttribute('aria-pressed', String(state.when !== 'not-sure' && state.when.slice(0, 7) === iso));
     b.setAttribute('aria-label', MONTHS[m] + ' ' + y);
     b.innerHTML = '<span class="opt-month">' + MON[m] + '</span><span class="opt-year">' + y + '</span>';
     box.appendChild(b);
@@ -926,24 +987,40 @@ function buildMonths() {
   }
 }
 
-function showExact(open, focus) {
-  el.exact.hidden = !open;
-  el.exactToggle.setAttribute('aria-expanded', String(open));
-  el.inDate.min = todayISO();
-  checkDate();
-  if (open && focus) {
-    el.inDate.focus();
-    try { if (el.inDate.showPicker) el.inDate.showPicker(); } catch (e) { /* not allowed here, the field still works */ }
+function buildDays(iso) {
+  const m = parseWhen(iso);
+  if (!m) return;
+  const y = Number(m[1]);
+  const mi = Number(m[2]) - 1;
+  el.sheetDayTitle.textContent = 'which day in ' + MONTHS[mi] + '?';
+  el.sheetDayHint.textContent = MONTHS[mi] + ' ' + y;
+  el.dayNote.textContent = "We'll put \u201Caround " + MONTHS[mi] + ' ' + y + "\u201D on your letter.";
+  const box = el.days;
+  box.textContent = '';
+  DAYS.forEach((d) => {
+    const s = document.createElement('span');
+    s.className = 'dow';
+    s.setAttribute('aria-hidden', 'true');
+    s.textContent = d.slice(0, 3);
+    box.appendChild(s);
+  });
+  const lead = (new Date(y, mi, 1).getDay() + 6) % 7; // Monday first
+  for (let i = 0; i < lead; i++) box.appendChild(document.createElement('span'));
+  const count = new Date(y, mi + 1, 0).getDate();
+  const today = todayISO();
+  for (let d = 1; d <= count; d++) {
+    const v = iso + '-' + pad(d);
+    const wd = (lead + d - 1) % 7;
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'day' + (wd >= 5 ? ' is-weekend' : '');
+    b.dataset.when = v;
+    b.textContent = String(d);
+    b.setAttribute('aria-label', DAYS[wd] + ' ' + d + ' ' + MONTHS[mi] + ' ' + y);
+    b.setAttribute('aria-pressed', String(state.when === v));
+    b.disabled = v < today;
+    box.appendChild(b);
   }
-}
-
-function checkDate() {
-  const v = el.inDate.value;
-  const p = v ? whenProblem(v) : 'missing';
-  el.useDate.disabled = !!p;
-  el.dateMsg.hidden = p !== 'past-date';
-  el.dateMsg.textContent = p === 'past-date' ? 'Pick today or a later date.' : '';
-  return !p;
 }
 
 /* ---------- sending ---------- */
@@ -956,8 +1033,8 @@ function letterSegments() {
   t('Hi wmhb, ' + (we ? "we're " : "I'm ")); b(state.name.trim()); t('. ' + (we ? "We'd" : "I'd") + ' like the guestbook for ');
   if (state.event === 'Something else') b('something else');
   else { t(article(state.event) + ' '); b(eventText(state.event)); }
-  if (state.when === 'not-sure') { t(', '); b(whenText(state.when)); t(', at '); } else { t(isExact(state.when) ? ' on ' : ' around '); b(whenText(state.when)); t(' at '); }
-  b(state.venue.trim());
+  if (state.when === 'not-sure') { t(', '); b(whenText(state.when)); } else { t(isExact(state.when) ? ' on ' : ' around '); b(whenText(state.when)); }
+  if (venueUnsure()) { t(', '); b('venue still to decide'); } else { t(state.when === 'not-sure' ? ', at ' : ' at '); b(state.venue.trim()); }
   t('. ');
   if (state.channel === 'phone') { t('Call or text '); b(state.phone.trim()); } else { t('Reply to '); b('@' + igClean(state.instagram)); }
   t('.');
@@ -1187,13 +1264,16 @@ function wire() {
   });
   el.months.addEventListener('click', (e) => {
     const b = e.target.closest('.opt');
-    if (b) choose('when', b.dataset.when);
+    if (b) pickMonth(b.dataset.when);
   });
+  el.days.addEventListener('click', (e) => {
+    const b = e.target.closest('.day');
+    if (b && !b.disabled) choose('when', b.dataset.when);
+  });
+  el.dayUnsure.addEventListener('click', () => choose('when', ui.dayMonth));
+  el.dayBack.addEventListener('click', () => { if (sheet.state === 'open') turnSheet('when', true); });
+  el.kbarUnsure.addEventListener('click', handleVenueUnsure);
   el.notSure.addEventListener('click', () => choose('when', 'not-sure'));
-  el.exactToggle.addEventListener('click', () => showExact(el.exact.hidden, true));
-  el.inDate.addEventListener('input', checkDate);
-  el.inDate.addEventListener('change', checkDate);
-  el.useDate.addEventListener('click', () => { if (checkDate()) choose('when', el.inDate.value); });
 
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', onViewportResize);
