@@ -41,6 +41,18 @@ That is the web address of the **wmhb enquiries** Google Apps Script (its own pr
 
 ## Update the backend (Code.gs)
 
+**Easiest: from the laptop.** The `backend/` folder is linked to the Apps Script project (it's called "wmhb enquires" in Apps Script) with Google's `clasp` tool, signed in as the business account. Open Claude Code in this folder and say what to change, or run these in a terminal in `backend/`:
+
+```
+clasp push
+clasp create-version "what changed"
+clasp update-deployment AKfycbzo0kqI5dWam4mH3wij__ZmD4DDeDOioQPCmlLMHHHVSk7FdgxnQcS1rKfyBqdYhROrtg --versionNumber <the new version number>
+```
+
+The last step keeps the same web address. To unlink the laptop from Google, run `clasp logout` (or remove "clasp" under Security → Third-party connections in the Google Account).
+
+**By hand in the browser:**
+
 1. Open the **wmhb enquiries** project at https://script.google.com, signed in as the business Google account only (an incognito window is easiest).
 2. Paste in the new code and save.
 3. **Deploy → Manage deployments → pencil (edit) → Version: New version → Deploy.**
